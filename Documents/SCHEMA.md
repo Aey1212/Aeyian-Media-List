@@ -1,17 +1,18 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/15): **Layer 1 written and tested** (`db/migrations/0001_core_entity.sql`, 73/73 tests).
-Layers 2–7 not started.
+Status (2026/09/15): **Layers 1–2 written and tested** (`db/migrations/0001_core_entity.sql`,
+`db/migrations/0002_media_work.sql`; `db/test.sh`: 73 + 94 = 167 passed, 0 failed).
+Layers 3–7 not started.
 
 ## Engine and modules
 
-PostgreSQL 16. Picked for modularity: each layer lives in its own schema, reusable types can be
+PostgreSQL 16. Picked for modularity: each layer lives in its own schema, reusable types are
 declared once as domains, and `ALTER TABLE` can evolve existing tables without rebuilding them.
 
 | Schema  | Holds |
 |---------|-------|
-| `core`  | Entity foundation, kinds, addressing |
-| `media` | Anime, Manga, Light Novel, Game, Series, Movie |
+| `core`  | Entity foundation, kinds, addressing, shared value types |
+| `media` | Anime, Manga, Light Novel, Game, Series, Movie; `media.work`; option lists; release schedules |
 | `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack |
 | `world` | Franchise, Character, Person, Company |
 
@@ -155,10 +156,153 @@ so **create entities only through `core.create_entity`**.
 
 ---
 
+## Layer 2 — Primary media
+
+### Shared value types
+
+| Type | Rule |
+|---|---|
+| `core.labels` | `{"en": {"text": "TV", "native": false}, "ja": {"text": "テレビ", "native": true}}`. At least one language, any language tag (`en`, `tr`, `ja`, `ja-Latn` …). Each entry has non-empty `text` and a `native` true/false; at most one entry is native. A refusal names the broken rule |
+| `core.partial_date` | `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; must be a real calendar date. `COLLATE "C"`, so it sorts as plain characters |
+| `core.seconds` | Positive whole seconds |
+
+- `core.label_en(text)` builds a one-language English label.
+- `core.partial_date_ordered(start, end)` compares at the coarser precision: start `2006-07-13` with
+  end `2006` is fine, end `2005-12` is not.
+
+### Option lists
+
+Each option list is a table of `code` (lowercase), `labels` and `sort_order`. Adding an option is a row.
+
+| Table | Options |
+|---|---|
+| `media.work_status` | upcoming, announced, airing, publishing, early_access, released, finished, hiatus, cancelled |
+| `media.source_type` | original, manga, web_manga, light_novel, web_novel, novel, visual_novel, game, anime, series, movie, other |
+| `media.anime_format` | tv, ova, ona, movie, special, music_video, short |
+
+Which statuses each medium may use (`media.work_status_kind`, one row per pair):
+
+| Medium | Statuses |
+|---|---|
+| Anime, Series | upcoming, airing, finished, hiatus, cancelled |
+| Manga, Light Novel | upcoming, publishing, finished, hiatus, cancelled |
+| Game | announced, early_access, released, cancelled |
+| Movie | announced, released, cancelled |
+
+### `media.work` — fields every medium shares
+
+One row per media entity; `kind` says which medium.
+
+| Column | Meaning |
+|---|---|
+| `status` | Must be allowed for the kind. `NULL` = not set |
+| `start_date`, `end_date` | Aired / published / released. Partial dates; end not before start |
+| `source_type` | What the work is based on |
+
+- The row is created by the trigger `entity_media_work` whenever a media entity is inserted, and
+  backfilled for media entities that existed before migration 0002.
+- Its `(entity_id, kind)` key also blocks changing the entity's kind.
+
+### Type-specific fields
+
+| Table | Columns |
+|---|---|
+| `media.anime` | `format`, `episode_count`, `typical_runtime_s` |
+| `media.manga` | `volume_count`, `chapter_count` |
+| `media.light_novel` | `volume_count` |
+| `media.game` | `local_players_min`, `local_players_max`, `online_players_min`, `online_players_max` (0 = mode not supported) |
+| `media.series` | `episode_count`, `typical_runtime_s` |
+| `media.movie` | `runtime_s` |
+
+Counts are declared totals, not counted from child pages, because not every episode or volume will
+have a page. `NULL` = unknown.
+
+Not in this layer: networks, publishers and imprints are company roles (layer 4); which volumes an
+adaptation covers belongs to the adaptation relationship (layer 4); estimated playtimes are external
+data (layer 7).
+
+### Release schedules
+
+`media.cadence_period` rows attach to an anime, manga, light novel, series or season. Each row has:
+
+| Column | Meaning |
+|---|---|
+| `schedule_type` | `regular`, `irregular` or `batch` |
+| `item` | What is released: `episode`, `chapter` or `volume` |
+| `item_count`, `period_count`, `period_unit` | `item_count` per `period_count` `period_unit` (day, week, month, quarter, year) |
+| `starts_on`, `ends_on` | When this schedule applied; a work can have several over time |
+| `weekday`, `local_time`, `time_zone` | Optional slot. ISO weekday (1 = Monday); IANA time zone, required with a time |
+| `note` | Free text |
+
+Shape rules come from `media.schedule_type`, so a new schedule type is a row:
+
+| Type | Count | Period |
+|---|---|---|
+| regular | required | required |
+| irregular | forbidden | forbidden |
+| batch | required (released at once) | forbidden |
+
+Which items each kind may schedule (`media.cadence_item_kind`):
+
+| Item | Kinds |
+|---|---|
+| episode | Anime, Series, Season |
+| chapter | Manga, Light Novel |
+| volume | Manga, Light Novel |
+
+PLANNING.md's examples as stored rows (`item_count` / `period_count` / `period_unit`):
+
+| Display | Stored |
+|---|---|
+| Weekly | 1 / 1 / week |
+| Per 2 weeks | 1 / 2 / week |
+| 2 per week | 2 / 1 / week |
+| Monthly | 1 / 1 / month |
+| 2 per month | 2 / 1 / month |
+| Per 2 months | 1 / 2 / month |
+| Quarterly | 1 / 1 / quarter |
+| Yearly | 1 / 1 / year |
+| 3 per 2 months | 3 / 2 / month |
+
+Turning a row into words ("Weekly", "Haftalık") is the backend's job, per language.
+
+### What the database enforces
+
+| Rule | Constraint |
+|---|---|
+| Labels are well-formed | `labels_ck` (message names the rule) |
+| Partial dates are real dates | `partial_date_ck` (message names the rule) |
+| Option codes are lowercase | `<list>_code_ck` |
+| Status pairs only name media kinds | `work_status_kind_kind_fk` |
+| One `media.work` row per media entity, matching its kind | `work_pkey`, `work_entity_fk`, `work_kind_family_fk`, `work_family_ck` |
+| Status allowed for the medium | `work_status_allowed_fk` |
+| End date not before start date | `work_dates_order_ck`, `cadence_dates_order_ck` |
+| Known source type / anime format | `work_source_type_fk`, `anime_format_fk` |
+| Counts not negative; runtimes positive | `*_count_ck`, `seconds_ck` |
+| Player min not above max | `game_local_players_range_ck`, `game_online_players_range_ck` |
+| Schedule numbers match the schedule type | `cadence_shape_fk`, `cadence_period_pair_ck` |
+| Schedule item allowed for the kind | `cadence_item_allowed_fk` |
+| Valid weekday; time needs a zone; zone exists | `cadence_weekday_ck`, `cadence_time_needs_zone_ck`, `cadence_time_zone_ck` |
+| Schedules and work rows go when their entity is deleted | `cadence_entity_fk`, `work_entity_fk` (CASCADE) |
+
+---
+
+## Decided, not built yet
+
+- **Outlet** (magazines, web platforms such as Weekly Shōnen Jump, Shōnen Jump+, Narō): a world kind
+  with its own page and serialization history. Agreed; later.
+- **Platform Family → Platform** (PlayStation → PS2): entities with their own addresses and pages,
+  a platform sitting under its family. **Not rateable.** Built with game releases in layer 5.
+- **Rateable flag per kind:** needed by layer 6 so ratings only attach where they make sense
+  (platforms: no).
+
+---
+
 ## Testing
 
-`db/test.sh` starts a throwaway PostgreSQL 16 container (podman, or `CONTAINER=docker`), applies every
-migration to a fresh database for each `db/tests/*.sql`, prints every result, and stops the container.
+`db/test.sh` starts a throwaway PostgreSQL 16 container (podman, or `CONTAINER=docker`). For each
+`db/tests/NNNN_*.sql` it creates a fresh database, applies migrations `0001..NNNN`, runs the file,
+and prints every result. The container is removed at the end.
 
 Every expected refusal must be refused by the **named** constraint or message; a refusal for any other
 reason counts as a failure.
@@ -167,9 +311,8 @@ reason counts as a failure.
 
 ## Pending layers
 
-2. Primary media — type-specific fields for Anime, Manga, Light Novel, Game, Series, Movie
 3. Reusable systems — titles, genres, tags, roles, images, companies, people
 4. Relationship system — directed media relationships, franchise relationships, appearances, staff assignments
-5. Child entities — fields for episodes, seasons, volumes, DLC, soundtracks, releases, cuts
+5. Child entities — fields for episodes, seasons, volumes, DLC, soundtracks, releases, cuts; platforms
 6. Aey layer — −50..+50 ratings, subratings, Aey's Take, progress and history
 7. External data — MAL, IMDb and other scores and links

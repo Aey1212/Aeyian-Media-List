@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Runs every db/tests/*.sql against a throwaway PostgreSQL 16 container.
-# Each test file gets a fresh database with all db/migrations/*.sql applied.
+# Each test file NNNN_*.sql gets a fresh database with migrations 0001..NNNN applied,
+# so every layer is tested against the schema as it stood when that layer landed.
 #
 #   db/test.sh                  uses podman
 #   CONTAINER=docker db/test.sh uses docker
@@ -27,9 +28,14 @@ pass=0; fail=0; status=0
 for t in tests/*.sql; do
   echo "== $(basename "$t")"
   pg -d postgres -c 'DROP DATABASE IF EXISTS aml_test' -c 'CREATE DATABASE aml_test' >/dev/null
+  n=$(basename "$t" | cut -d_ -f1)
+  applied=()
   for m in migrations/*.sql; do
+    [[ "$(basename "$m" | cut -d_ -f1)" > "$n" ]] && continue
     pg -d aml_test < "$m" >/dev/null || { echo "migration $(basename "$m") failed" >&2; exit 1; }
+    applied+=("$(basename "$m" | cut -d_ -f1)")
   done
+  echo "   migrations: ${applied[*]}"
   if ! out=$(pg -d aml_test -At < "$t" 2>&1); then status=1; fi
   printf '%s\n' "$out"
   p=$(grep -c '^PASS' <<<"$out" || true); f=$(grep -c '^FAIL' <<<"$out" || true)
