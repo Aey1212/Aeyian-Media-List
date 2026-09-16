@@ -1,8 +1,8 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/16): **Layers 1–4 written and tested** (`db/migrations/0001_core_entity.sql`,
-`0002_media_work.sql`, `0003_reusable_systems.sql`, `0004_relationships.sql`;
-`db/test.sh`: 73 + 94 + 149 + 98 = 414 passed, 0 failed). Layers 5–7 not started.
+Status (2026/09/16): **Layers 1–5 written and tested** (`db/migrations/0001_core_entity.sql`,
+`0002_media_work.sql`, `0003_reusable_systems.sql`, `0004_relationships.sql`, `0005_child_entities.sql`;
+`db/test.sh`: 73 + 94 + 149 + 98 + 104 = 518 passed, 0 failed). Layers 6–7 not started.
 
 ## Engine and modules
 
@@ -14,8 +14,8 @@ modularity: each layer lives in its own schema, reusable types are declared once
 |---------|-------|
 | `core`  | Entity foundation, kinds, addressing, shared value types, titles, texts, images, genre/tag trees, age ratings, role lists, origins, relationships, franchise membership, appearances, performances, credits |
 | `media` | Anime, Manga, Light Novel, Game, Series, Movie; `media.work`; media option lists; release schedules |
-| `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack, Age Rating |
-| `world` | Franchise, Character, Person, Company, Genre, Tag, Age Rating System |
+| `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack, Age Rating, Platform; plus volume ISBNs, release languages, soundtrack tracks, episode themes |
+| `world` | Franchise, Character, Person, Company, Genre, Tag, Age Rating System, Platform Family |
 
 Extension: `pg_trgm` (title search).
 
@@ -501,12 +501,75 @@ hold several roles on one target; each role is its own row.
 
 ---
 
+## Layer 5 — Child entities and platforms
+
+### Platforms
+
+**Platform Family** (`26`, world) holds **Platforms** (`18`, child of its family): PlayStation is
+`/26/01` and PS2 is `/26/01/18/01`. A platform has release and discontinuation dates, gets its own
+page, and is **not rateable**. A platform still used by a release cannot be deleted.
+
+### Every child type table accepts an empty row
+
+`core.create_entity` inserts the type row empty and the fields are filled afterwards, so no child type
+table may demand a value at creation time. A "a season needs a number or a display name" rule was
+written and removed for exactly this reason: it made seasons impossible to create. Being identifiable
+before going public is already covered by layer 3's rule that a published entity needs a title.
+
+### Fields
+
+| Table | Columns | PLANNING.md |
+|---|---|---|
+| `child.season` | `number`, `display_name`, `started_on`, `ended_on` | "number/display name … dates"; non-numeric and special seasons work |
+| `child.episode` | `number_in_season`, `number_overall` (halves allowed, for 12.5 specials), `aired_on`, `runtime_s`, `source_coverage` | Anime and Series sections |
+| `child.volume` | `number` (halves), `released_on`, `page_count`, `chapter_from`, `chapter_to`, `contents` | "number … release dates, ISBNs … page count, chapter range" |
+| `child.volume_isbn` | several ISBNs per volume, ISBN-10 or ISBN-13, digits only | "ISBNs" |
+| `child.dlc` | `category`, `released_on` | "modular DLC categories rather than a fixed enum" |
+| `child.release` | `release_type`, `region`, `released_on`, `platform_id`, `distribution` | "platform, region, release date … physical/digital"; "modular release type" |
+| `child.release_language` | languages of a release, with notes like "subtitles only" | "languages" |
+| `child.cut` | `cut_type`, `runtime_s`, `changes` | "type, runtime … changed/additional content" |
+| `child.soundtrack` | `released_on`, `runtime_s` | "release dates … runtime" |
+
+Titles, covers and synopses come from layer 3; publishers, distributors, composers, performers and
+labels are credits from layer 4; age ratings attach from layer 3; store links are layer 7.
+
+### Tracks and themes
+
+Tracks are rows, not entities — no address and no page of their own, as the document asks. A track has
+a disc number, a track number, a multilingual title (so Japanese and romaji both fit) and a runtime.
+Track numbers are unique per soundtrack and disc, with "no disc number" counted as a value.
+
+`child.episode_theme` links a track to an episode as its opening, ending, insert song or theme.
+
+### Option lists added
+
+`media.dlc_category`, `media.release_type`, `media.distribution`, `media.cut_type`,
+`media.theme_type`, plus the `performer` staff role and `label` company role that the soundtracks
+section implies.
+
+### What the database enforces
+
+| Rule | Constraint |
+|---|---|
+| A platform sits under a platform family | `entity_parent_allowed_fk` |
+| A platform is not discontinued before release | `platform_dates_order_ck` |
+| Seasons and episodes: numbers not negative, dates in order, real dates | `season_number_ck`, `season_dates_order_ck`, `episode_number_*_ck`, `partial_date_ck` |
+| A season's display name is not blank | `season_display_name_ck` |
+| Volume chapter ranges run forwards; page counts are positive | `volume_chapter_range_ck`, `volume_page_count_ck` |
+| ISBNs are 10 or 13 digits, unique per volume | `volume_isbn_format_ck`, `volume_isbn_pkey` |
+| DLC categories, release types, distribution and cut types come from their lists | `dlc_category_fk`, `release_release_type_fk`, `release_distribution_fk`, `cut_cut_type_fk` |
+| A release's platform is a platform, and cannot be deleted while used | `release_platform_fk` (RESTRICT) |
+| A release lists each language once | `release_language_pkey` |
+| Track numbers are unique per soundtrack and disc | `soundtrack_track_uq` (NULLS NOT DISTINCT) |
+| Themes attach to episodes only, with a known type | `episode_theme_episode_fk`, `episode_theme_type_fk` |
+| Deleting an entity removes its ISBNs, languages, tracks and themes | `*_fk` (CASCADE) |
+
+---
+
 ## Decided, not built yet
 
 - **Outlet** (magazines, web platforms such as Weekly Shōnen Jump, Shōnen Jump+, Narō): a world kind
   with its own page and serialization history. Agreed; later.
-- **Platform Family → Platform** (PlayStation → PS2): entities with their own addresses and pages,
-  a platform sitting under its family. **Not rateable.** Built with game releases in layer 5.
 - **Rateable flag per kind:** needed by layer 6 so ratings only attach where they make sense
   (platforms, genres, tags and age ratings: no).
 
@@ -525,6 +588,5 @@ reason counts as a failure.
 
 ## Pending layers
 
-5. Child entities — fields for episodes, seasons, volumes, DLC, soundtracks, releases, cuts; platforms
 6. Aey layer — −50..+50 ratings, subratings, Aey's Take, progress and history
 7. External data — MAL, IMDb and other scores and links
