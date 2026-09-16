@@ -1,8 +1,8 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/15): **Layers 1–2 written and tested** (`db/migrations/0001_core_entity.sql`,
-`db/migrations/0002_media_work.sql`; `db/test.sh`: 73 + 94 = 167 passed, 0 failed).
-Layers 3–7 not started.
+Status (2026/09/16): **Layers 1–3 written and tested** (`db/migrations/0001_core_entity.sql`,
+`0002_media_work.sql`, `0003_reusable_systems.sql`; `db/test.sh`: 73 + 94 + 149 = 316 passed, 0 failed).
+Layers 4–7 not started.
 
 ## Engine and modules
 
@@ -11,12 +11,12 @@ declared once as domains, and `ALTER TABLE` can evolve existing tables without r
 
 | Schema  | Holds |
 |---------|-------|
-| `core`  | Entity foundation, kinds, addressing, shared value types |
-| `media` | Anime, Manga, Light Novel, Game, Series, Movie; `media.work`; option lists; release schedules |
-| `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack |
-| `world` | Franchise, Character, Person, Company |
+| `core`  | Entity foundation, kinds, addressing, shared value types, titles, texts, images, genre/tag trees, age ratings, role lists, origins |
+| `media` | Anime, Manga, Light Novel, Game, Series, Movie; `media.work`; media option lists; release schedules |
+| `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack, Age Rating |
+| `world` | Franchise, Character, Person, Company, Genre, Tag, Age Rating System |
 
-Later layers add their own schemas (for example `aey` and `ext`).
+Extension: `pg_trgm` (title search).
 
 ---
 
@@ -59,6 +59,7 @@ child        {parent address}/{kind}/{n}         /01/0034/001/12/001
 | Soundtrack of a P3R release | `/04/0035/001/15/001/17/01` |
 | Franchise-wide soundtrack | `/21/0034/17/01` |
 | Taiga (character) | `/22/0001` |
+| PEGI 16 | `/29/01/19/01` |
 
 Rules:
 
@@ -79,26 +80,31 @@ Rules:
 
 The first character of a code is the family: `0` media, `1` child, `2` world.
 
-| Code | Kind | Family | Numbered per | Width | Capacity |
-|---|---|---|---|---|---|
-| 01 | Anime | media | home franchise | 3 | 32,768 |
-| 02 | Manga | media | home franchise | 3 | 32,768 |
-| 03 | Light Novel | media | home franchise | 3 | 32,768 |
-| 04 | Game | media | home franchise | 3 | 32,768 |
-| 05 | Series | media | home franchise | 3 | 32,768 |
-| 06 | Movie | media | home franchise | 3 | 32,768 |
-| 11 | Season | child | parent | 2 | 1,024 |
-| 12 | Episode | child | parent | 3 | 32,768 |
-| 13 | Volume | child | parent | 3 | 32,768 |
-| 14 | DLC | child | parent | 3 | 32,768 |
-| 15 | Release | child | parent | 3 | 32,768 |
-| 16 | Cut | child | parent | 2 | 1,024 |
-| 17 | Soundtrack | child | parent | 2 | 1,024 |
-| 21 | Franchise | world | global | 4 | 1,048,576 |
-| 22 | Character | world | global | 4 | 1,048,576 |
-| 23 | Person | world | global | 5 | 33,554,432 |
-| 24 | Company | world | global | 4 | 1,048,576 |
+| Code | Kind | Family | Numbered per | Width | Capacity | Added in |
+|---|---|---|---|---|---|---|
+| 01 | Anime | media | home franchise | 3 | 32,768 | 0001 |
+| 02 | Manga | media | home franchise | 3 | 32,768 | 0001 |
+| 03 | Light Novel | media | home franchise | 3 | 32,768 | 0001 |
+| 04 | Game | media | home franchise | 3 | 32,768 | 0001 |
+| 05 | Series | media | home franchise | 3 | 32,768 | 0001 |
+| 06 | Movie | media | home franchise | 3 | 32,768 | 0001 |
+| 11 | Season | child | parent | 2 | 1,024 | 0001 |
+| 12 | Episode | child | parent | 3 | 32,768 | 0001 |
+| 13 | Volume | child | parent | 3 | 32,768 | 0001 |
+| 14 | DLC | child | parent | 3 | 32,768 | 0001 |
+| 15 | Release | child | parent | 3 | 32,768 | 0001 |
+| 16 | Cut | child | parent | 2 | 1,024 | 0001 |
+| 17 | Soundtrack | child | parent | 2 | 1,024 | 0001 |
+| 19 | Age Rating | child | parent (its system) | 2 | 1,024 | 0003 |
+| 21 | Franchise | world | global | 4 | 1,048,576 | 0001 |
+| 22 | Character | world | global | 4 | 1,048,576 | 0001 |
+| 23 | Person | world | global | 5 | 33,554,432 | 0001 |
+| 24 | Company | world | global | 4 | 1,048,576 | 0001 |
+| 27 | Genre | world | global | 3 | 32,768 | 0003 |
+| 28 | Tag | world | global | 3 | 32,768 | 0003 |
+| 29 | Age Rating System | world | global | 2 | 1,024 | 0003 |
 
+Reserved, not built: `25` Outlet; `26` Platform Family and `18` Platform (layer 5).
 Changing a width later changes existing addresses; old ones would need redirects.
 
 ### Placements
@@ -114,6 +120,7 @@ Which child kinds may sit under which parents (`core.entity_kind_parent`). Addin
 | Release | Game, Movie |
 | Cut | Movie |
 | Soundtrack | Anime, Manga, Light Novel, Game, Series, Movie, Season, Episode, Volume, DLC, Release, Cut, Franchise |
+| Age Rating | Age Rating System |
 
 A series episode therefore always sits in a season; an anime episode may sit in the anime or in a season.
 
@@ -162,7 +169,7 @@ so **create entities only through `core.create_entity`**.
 
 | Type | Rule |
 |---|---|
-| `core.labels` | `{"en": {"text": "TV", "native": false}, "ja": {"text": "テレビ", "native": true}}`. At least one language, any language tag (`en`, `tr`, `ja`, `ja-Latn` …). Each entry has non-empty `text` and a `native` true/false; at most one entry is native. A refusal names the broken rule |
+| `core.labels` | `{"en": {"text": "TV", "native": false}, "ja": {"text": "テレビ", "native": true}}`. At least one language, any language tag. Each entry has non-empty `text` and a `native` true/false; at most one entry is native. A refusal names the broken rule |
 | `core.partial_date` | `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; must be a real calendar date. `COLLATE "C"`, so it sorts as plain characters |
 | `core.seconds` | Positive whole seconds |
 
@@ -216,10 +223,6 @@ One row per media entity; `kind` says which medium.
 
 Counts are declared totals, not counted from child pages, because not every episode or volume will
 have a page. `NULL` = unknown.
-
-Not in this layer: networks, publishers and imprints are company roles (layer 4); which volumes an
-adaptation covers belongs to the adaptation relationship (layer 4); estimated playtimes are external
-data (layer 7).
 
 ### Release schedules
 
@@ -287,6 +290,128 @@ Turning a row into words ("Weekly", "Haftalık") is the backend's job, per langu
 
 ---
 
+## Layer 3 — Reusable systems
+
+### Shared value types
+
+| Type | Rule |
+|---|---|
+| `core.lang_tag` | Language tag: `en`, `ja`, `tr`, `ja-Latn` (romaji), `pt-BR` … |
+| `core.country_code` | ISO 3166-1 alpha-2, uppercase: `JP`, `TR`, `US`, `EU` |
+
+### Titles — `core.title`, for every entity
+
+Names of people, characters, companies, genres, tags and age ratings live here too.
+
+| Column | Meaning |
+|---|---|
+| `lang` | Language of the title |
+| `title_type` | `full`, `short`, `alternative` (option list `core.title_type`) |
+| `text` | The title |
+| `native` | The title in the original language |
+| `preferred` | Shown for this language and type when there are several |
+| `romanizes_id` | A romanized title points to the title it spells out |
+| `sort_order` | Order among titles |
+
+- **At most one native title per type** per entity (one native full, one native short).
+- **At most one preferred title** per language and type.
+- **A romanization** uses a Latin-script tag (`ja-Latn`), belongs to the same entity and type as its
+  source, is never native, and cannot point at itself. A title that a romanization points to cannot be
+  deleted on its own; deleting the whole entity removes both.
+- **The same text** cannot repeat for one language and type.
+- **A published entity must have at least one title.** This is checked at commit, so one transaction
+  can create an entity, publish it and add its title in any order, or replace its only title.
+- **Search:** trigram index (`pg_trgm`). Tested with a typo (`toradra`) and a Japanese substring (`らドラ`).
+
+### Texts — `core.entity_text`, for every entity
+
+One text per entity, text type and language. Text types (`core.text_type`): `synopsis`, `description`.
+
+### Genres and tags
+
+Genres (`27`) and tags (`28`) are entities: names and aliases are titles, descriptions are texts.
+
+- **Trees:** `core.genre_parent` and `core.tag_parent` allow zero or more parents
+  (RPG › Action RPG › Souls-like; Action RPG may also sit under Action). Genres only under genres,
+  tags only under tags.
+- **No loops:** `core.trg_edge_no_loop(child column, parent column)` refuses an edge that would close a
+  loop, on insert and update. It works for any edge table.
+- **Descendants:** `core.genre_with_descendants(id)` and `core.tag_with_descendants(id)` return the
+  genre or tag plus everything below it, for "filter by genre including sub-genres".
+- **Attaching:** `core.entity_genre`, `core.entity_tag` — primary media only (PLANNING.md).
+- **Deleting:** a genre or tag still attached to a work, or still a parent, cannot be deleted.
+  Deleting a work removes its links; deleting a leaf genre removes its own parent links.
+
+### Age ratings
+
+- **Age Rating System** (`29`, `world.age_rating_system`): `regions` it covers.
+- **Age Rating** (`19`, `child.age_rating`) sits under its system: `min_age` 0–99 (optional).
+- Name, description, logo and icon come from titles, texts and images.
+- **`core.entity_age_rating`:** an entity carries **at most one rating per system**. `system_id` is filled
+  from the rating when omitted, and must match the rating's own system.
+- Allowed on primary media and on Season, Episode, Volume, DLC, Release, Cut and Soundtrack
+  ("releases or child entities when needed").
+- A rating in use cannot be deleted; a system with ratings cannot be deleted.
+
+### Images — `core.image`, for every entity
+
+| Column | Meaning |
+|---|---|
+| `image_type` | Option list `core.image_type`: cover, poster, banner, backdrop, box_art, logo, thumbnail, volume_cover, season_poster, portrait, icon |
+| `sha256`, `format` | The file: `<sha256>.<format>`. Formats are an option list `core.image_format` (jpg, png, webp, avif, gif, svg) with their MIME types |
+| `width`, `height`, `byte_size` | Width and height together, or neither (vector images) |
+| `lang`, `region` | Language of text in the image; region-specific artwork |
+| `caption` | Multilingual caption (`core.labels`) |
+| `sort_order`, `is_primary` | Order; one primary image per type per entity |
+
+- The same file can be used by several entities, but only once per entity and type.
+- Any image type may be used on any entity. The folder the files live in is decided at deployment.
+
+### Role lists (used by layer 4 credits)
+
+Option tables; adding a custom role is a row. PLANNING.md sets no per-kind limits, so any role can be
+used on any media or child entity.
+
+| Table | Options |
+|---|---|
+| `core.staff_role` | director, writer, composer, character_designer |
+| `core.company_role` | animation_studio, developer, publisher, production_company, distributor, licensor, broadcaster, original_network, localization_publisher, imprint |
+| `core.appearance_role` | protagonist, main, supporting, antagonist, playable, boss, guest |
+| `core.performance_type` | voice, live_action, motion_capture |
+
+### Original languages and countries of origin
+
+`core.entity_original_language` (language tags) and `core.entity_origin_country` (country codes),
+each with a sort order. Primary media only.
+
+### Where attachable systems apply — `core.attach_kind`
+
+One row per (system, kind). Extending a system to another kind is a row.
+
+| System | Kinds |
+|---|---|
+| `genre`, `tag`, `origin` | Anime, Manga, Light Novel, Game, Series, Movie |
+| `age_rating` | the six media + Season, Episode, Volume, DLC, Release, Cut, Soundtrack |
+
+### What the database enforces
+
+| Rule | Constraint |
+|---|---|
+| Language tags and country codes are well-formed | `lang_tag_ck`, `country_code_ck` |
+| One native title per type; one preferred per language and type | `title_native_uq`, `title_preferred_uq` |
+| Romanization: same entity and type, Latin script, not native, not itself | `title_romanizes_fk`, `title_romanization_latin_ck`, `title_romanization_not_native_ck`, `title_romanizes_self_ck` |
+| No blank or duplicate titles; known title type | `title_text_ck`, `title_text_uq`, `title_type_fk` |
+| Published entities have a title (at commit) | triggers `entity_publish_needs_title`, `title_removal_keeps_one` |
+| One text per entity, type and language; not blank | `entity_text_pkey`, `entity_text_body_ck` |
+| Genre/tag trees: right kinds, no self, no loops | `genre_parent_*_fk`, `tag_parent_*_fk`, `*_self_ck`, triggers `*_parent_no_loop` |
+| Genres, tags, origins, age ratings only on allowed kinds | `entity_genre_allowed_fk`, `entity_tag_allowed_fk`, `entity_original_language_allowed_fk`, `entity_origin_country_allowed_fk`, `entity_age_rating_allowed_fk` |
+| A genre/tag in use or with children is not deleted | `entity_genre_genre_fk`, `entity_tag_tag_fk`, `genre_parent_parent_fk`, `tag_parent_parent_fk` (RESTRICT) |
+| One age rating per system; rating matches its system | `entity_age_rating_pkey`, `entity_age_rating_rating_fk` |
+| Minimum age 0–99 | `age_rating_min_age_ck` |
+| Image file, size and format rules; one primary per type | `image_sha256_ck`, `image_size_pair_ck`, `image_width_ck`, `image_height_ck`, `image_format_fk`, `image_file_once_uq`, `image_primary_uq` |
+
+---
+
 ## Decided, not built yet
 
 - **Outlet** (magazines, web platforms such as Weekly Shōnen Jump, Shōnen Jump+, Narō): a world kind
@@ -294,7 +419,7 @@ Turning a row into words ("Weekly", "Haftalık") is the backend's job, per langu
 - **Platform Family → Platform** (PlayStation → PS2): entities with their own addresses and pages,
   a platform sitting under its family. **Not rateable.** Built with game releases in layer 5.
 - **Rateable flag per kind:** needed by layer 6 so ratings only attach where they make sense
-  (platforms: no).
+  (platforms, genres, tags and age ratings: no).
 
 ---
 
@@ -311,8 +436,7 @@ reason counts as a failure.
 
 ## Pending layers
 
-3. Reusable systems — titles, genres, tags, roles, images, companies, people
-4. Relationship system — directed media relationships, franchise relationships, appearances, staff assignments
+4. Relationship system — directed media relationships, franchise relationships, appearances, staff and company credits, performances
 5. Child entities — fields for episodes, seasons, volumes, DLC, soundtracks, releases, cuts; platforms
 6. Aey layer — −50..+50 ratings, subratings, Aey's Take, progress and history
 7. External data — MAL, IMDb and other scores and links
