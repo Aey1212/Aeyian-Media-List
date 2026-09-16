@@ -1,7 +1,7 @@
 # Aeyian Media List — Planning Document
 
 ## Project identity
-AML is the personally curated media database for list.aeyempire.com. It combines encyclopedia-style information, interconnected entities, external ratings, Aey ratings, and compact Aey's Take opinions. Aey is the sole curator.
+AML is the personally curated media database at aeyempire.com/AML (desktop) and m.aeyempire.com/AML (mobile). It combines encyclopedia-style information, interconnected entities, external ratings, Aey ratings, and compact Aey's Take opinions. Aey is the sole curator.
 
 ## Primary media
 - Anime
