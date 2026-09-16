@@ -1,17 +1,18 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/16): **Layers 1–3 written and tested** (`db/migrations/0001_core_entity.sql`,
-`0002_media_work.sql`, `0003_reusable_systems.sql`; `db/test.sh`: 73 + 94 + 149 = 316 passed, 0 failed).
-Layers 4–7 not started.
+Status (2026/09/16): **Layers 1–4 written and tested** (`db/migrations/0001_core_entity.sql`,
+`0002_media_work.sql`, `0003_reusable_systems.sql`, `0004_relationships.sql`;
+`db/test.sh`: 73 + 94 + 149 + 98 = 414 passed, 0 failed). Layers 5–7 not started.
 
 ## Engine and modules
 
-PostgreSQL 16. Picked for modularity: each layer lives in its own schema, reusable types are
-declared once as domains, and `ALTER TABLE` can evolve existing tables without rebuilding them.
+PostgreSQL 16 (15 or newer required: layer 4 uses `UNIQUE NULLS NOT DISTINCT`). Picked for
+modularity: each layer lives in its own schema, reusable types are declared once as domains, and
+`ALTER TABLE` can evolve existing tables without rebuilding them.
 
 | Schema  | Holds |
 |---------|-------|
-| `core`  | Entity foundation, kinds, addressing, shared value types, titles, texts, images, genre/tag trees, age ratings, role lists, origins |
+| `core`  | Entity foundation, kinds, addressing, shared value types, titles, texts, images, genre/tag trees, age ratings, role lists, origins, relationships, franchise membership, appearances, performances, credits |
 | `media` | Anime, Manga, Light Novel, Game, Series, Movie; `media.work`; media option lists; release schedules |
 | `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack, Age Rating |
 | `world` | Franchise, Character, Person, Company, Genre, Tag, Age Rating System |
@@ -412,6 +413,94 @@ One row per (system, kind). Extending a system to another kind is a row.
 
 ---
 
+## Layer 4 — Relationships, membership, appearances and credits
+
+### Relationship types — `core.relation_type`
+
+A link is stored once: (source) is *type* (target). The type carries the label each side shows, so
+the page wording is derived rather than stored twice.
+
+| Column | Meaning |
+|---|---|
+| `target_labels` | shown on the source's page, naming the target |
+| `source_labels` | shown on the target's page, naming the source |
+| `two_sided` | same label both ways; stored in one direction only (`symmetric` is a reserved word in SQL) |
+
+Stored "B is `sequel_of` A":
+
+| Page | Shows |
+|---|---|
+| B | A — Prequel |
+| A | B — Sequel |
+
+Seeded from PLANNING.md: sequel, side story, spin-off, adaptation, retelling, recap, remake, reboot,
+remaster, port, enhanced version, alternative version, version, re-edit, alternative universe
+(two-sided), crossover (two-sided). Adding a type is a row.
+
+### Relationships between works — `core.media_relation`
+
+- Both ends are media works; cross-media is allowed (an anime adapting a light novel).
+- No self-links. A pair holds each type once, whichever way round it was entered. Two-sided types are
+  stored with the lower id first.
+- `two_sided` is filled from the type by a trigger, so a row cannot disagree with its type.
+- `note` carries things like "adapts volumes 1–5".
+- Deleting a work removes its links.
+
+### Relationships between franchises — `core.franchise_relation`
+
+Same type list and same rules, between franchises (Persona as a spin-off of Shin Megami Tensei).
+
+### Franchise membership — `core.entity_franchise`, view `core.entity_franchise_all`
+
+PLANNING.md: media can belong to franchise**s**. Every work has one **home** franchise, which its
+address is built from (layer 1); further franchises are rows in `core.entity_franchise`. The home
+franchise cannot be repeated there, and the view lists home and extra together. A franchise that
+still has members cannot be deleted.
+
+### Appearances — `core.appearance`, `core.appearance_role_link`
+
+A character in a target (media work or child entity), once per pair, with one or more roles from
+`core.appearance_role` (Protagonist, Main, Playable, Boss …), plus a note and sort order.
+
+### Performances — `core.performance`
+
+Person + character + target + performance type + optional language and notes, as PLANNING.md
+specifies. Performances are their own system, not tied to an appearance row. Unique per person,
+character, target, type and language, with a missing language counted as a value.
+
+### Staff and company credits — `core.staff_credit`, `core.company_credit`
+
+Person or company + role + target (media work or child entity) + note + sort order. One person can
+hold several roles on one target; each role is its own row.
+
+### Where these attach — `core.attach_kind`
+
+| System | Kinds |
+|---|---|
+| `relation`, `franchise` | the six media |
+| `appearance`, `credit` | the six media + Season, Episode, Volume, DLC, Release, Cut, Soundtrack |
+
+### What the database enforces
+
+| Rule | Constraint |
+|---|---|
+| A two-sided type uses the same label on both sides | `relation_type_two_sided_labels_ck` |
+| Links are between allowed kinds | `media_relation_source_allowed_fk`, `media_relation_target_allowed_fk` |
+| Franchise links are between franchises | `franchise_relation_source_kind_ck`, `franchise_relation_source_fk` |
+| Nothing links to itself | `media_relation_self_ck`, `franchise_relation_self_ck` |
+| One link per pair and type, either way round | `media_relation_uq`, `media_relation_pair_uq`, `franchise_relation_uq`, `franchise_relation_pair_uq` |
+| Two-sided links are stored one way only | `media_relation_two_sided_order_ck`, `franchise_relation_two_sided_order_ck` |
+| The two-sided flag matches the type | `media_relation_type_fk`, `franchise_relation_type_fk` + fill trigger |
+| The home franchise is not repeated as membership | trigger `entity_franchise_not_home` |
+| A franchise with members is not deleted | `entity_franchise_franchise_fk` (RESTRICT) |
+| A character appears once per target; roles come from the list | `appearance_uq`, `appearance_role_link_role_fk` |
+| Only characters appear; only people perform and are credited; only companies take company roles | `appearance_character_fk`, `performance_person_fk`, `staff_credit_person_fk`, `company_credit_company_fk` |
+| One performance per person, character, target, type and language | `performance_uq` (NULLS NOT DISTINCT) |
+| One credit per person or company, role and target | `staff_credit_uq`, `company_credit_uq` |
+| Deleting an entity removes its links, appearances, performances and credits | `*_fk` (CASCADE) |
+
+---
+
 ## Decided, not built yet
 
 - **Outlet** (magazines, web platforms such as Weekly Shōnen Jump, Shōnen Jump+, Narō): a world kind
@@ -436,7 +525,6 @@ reason counts as a failure.
 
 ## Pending layers
 
-4. Relationship system — directed media relationships, franchise relationships, appearances, staff and company credits, performances
 5. Child entities — fields for episodes, seasons, volumes, DLC, soundtracks, releases, cuts; platforms
 6. Aey layer — −50..+50 ratings, subratings, Aey's Take, progress and history
 7. External data — MAL, IMDb and other scores and links
