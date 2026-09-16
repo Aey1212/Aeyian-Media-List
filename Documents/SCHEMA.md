@@ -1,8 +1,9 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/16): **Layers 1–5 written and tested** (`db/migrations/0001_core_entity.sql`,
-`0002_media_work.sql`, `0003_reusable_systems.sql`, `0004_relationships.sql`, `0005_child_entities.sql`;
-`db/test.sh`: 73 + 94 + 149 + 98 + 104 = 518 passed, 0 failed). Layers 6–7 not started.
+Status (2026/09/16): **Layers 1–6 written and tested** (`db/migrations/0001_core_entity.sql`,
+`0002_media_work.sql`, `0003_reusable_systems.sql`, `0004_relationships.sql`, `0005_child_entities.sql`,
+`0006_aey_layer.sql`; `db/test.sh`: 73 + 94 + 149 + 98 + 104 + 91 = 609 passed, 0 failed).
+Layer 7 not started.
 
 ## Engine and modules
 
@@ -16,6 +17,7 @@ modularity: each layer lives in its own schema, reusable types are declared once
 | `media` | Anime, Manga, Light Novel, Game, Series, Movie; `media.work`; media option lists; release schedules |
 | `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack, Age Rating, Platform; plus volume ISBNs, release languages, soundtrack tracks, episode themes |
 | `world` | Franchise, Character, Person, Company, Genre, Tag, Age Rating System, Platform Family |
+| `aey`   | Aey's own layer: General Score, subratings, Aey's Take, progress and history |
 
 Extension: `pg_trgm` (title search).
 
@@ -566,12 +568,76 @@ section implies.
 
 ---
 
+## Layer 6 — The Aey layer
+
+### Which kinds can be rated
+
+`core.entity_kind.rateable` marks 13 kinds: the six media, plus Season, Episode, Volume, DLC, Cut and
+Soundtrack, plus Character (PLANNING.md ranks "top characters"). Releases are not rated — the document
+lists no Aey data for them — and neither are people, companies, franchises, genres, tags, age ratings
+or platforms. Every table in this layer requires a rateable kind through `(entity_kind, rateable)`.
+
+### The score
+
+| Piece | Meaning |
+|---|---|
+| `core.score_50` | −50 to +50, the stored range |
+| `aey.score` | One row per entity: `general`, optional `rated_on` |
+| `aey.score_shown(n)` | The number a reader sees: `n / 5`, one decimal (+32 → 6.4) |
+| `aey.half_stars(n)` | Half-stars filled, −10..+10: every 5 points is half a star (+32 → 6, that is 3 stars) |
+
+Both helpers take a plain integer. A domain parameter would look tidier but PostgreSQL does not
+implicitly convert an integer to a domain over `smallint`, so `aey.half_stars(32)` would fail to
+resolve; the domain stays on the stored columns.
+
+**General Score is authoritative.** Nothing in the schema derives or averages it from subratings, and
+there is no favourite flag anywhere: rankings are `ORDER BY general`, filtered however you like
+("highest-rated Romance Anime" is a join to genres).
+
+### Subratings
+
+- `aey.subrating_category` — a starting set (story, characters, pacing, art, animation, music,
+  gameplay, world); every one is an editable row.
+- `aey.subrating_suggestion` — a category suggested for a **medium or a genre**, exactly one of the
+  two. Advisory only: nothing requires a suggested category, forbids an unsuggested one, or weights any
+  of them.
+- `aey.subrating` — one value per entity and category, −50..+50, independent of the General Score.
+
+### Aey's Take
+
+`aey.take`: one per entity and language, never blank, with an optional date. No length limit is
+imposed — "short" is the curator's call.
+
+### Progress and history
+
+`aey.status` is a starting list: planning, in_progress, on_hold, completed, revisiting, dropped.
+
+`aey.progress` holds one row per entity: status, a progress value with its unit (episode, chapter or
+volume — a value requires a unit), start and finish dates, times completed, time spent, and a note.
+It attaches to the six media and to seasons. `aey.progress_platform` records the platforms something
+was played on; a platform still recorded there cannot be deleted.
+
+### What the database enforces
+
+| Rule | Constraint |
+|---|---|
+| Scores, subratings and takes only on rateable kinds | `score_rateable_fk`, `subrating_rateable_fk`, `take_rateable_fk` |
+| Scores stay within −50..+50 | `score_50_ck` |
+| One score per entity; one value per category; one take per language | `score_pkey`, `subrating_pkey`, `take_pkey` |
+| A suggestion names a medium or a genre, not both or neither | `subrating_suggestion_one_target_ck` |
+| Categories and statuses come from their lists | `subrating_category_fk`, `progress_status_fk` |
+| A take is not blank | `take_body_ck` |
+| Progress only where it applies; one row per entity | `progress_allowed_fk`, `progress_pkey` |
+| A progress number carries a unit; dates run forwards; counts and playtime are sane | `progress_value_needs_unit_ck`, `progress_dates_order_ck`, `progress_times_completed_ck`, `progress_time_spent_ck` |
+| A platform recorded as played on cannot be deleted | `progress_platform_platform_fk` (RESTRICT) |
+| Deleting an entity removes its score, subratings, takes and progress | `*_fk` (CASCADE) |
+
+---
+
 ## Decided, not built yet
 
 - **Outlet** (magazines, web platforms such as Weekly Shōnen Jump, Shōnen Jump+, Narō): a world kind
   with its own page and serialization history. Agreed; later.
-- **Rateable flag per kind:** needed by layer 6 so ratings only attach where they make sense
-  (platforms, genres, tags and age ratings: no).
 
 ---
 
@@ -588,5 +654,4 @@ reason counts as a failure.
 
 ## Pending layers
 
-6. Aey layer — −50..+50 ratings, subratings, Aey's Take, progress and history
 7. External data — MAL, IMDb and other scores and links
