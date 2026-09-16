@@ -1,9 +1,7 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/16): **Layers 1–6 written and tested** (`db/migrations/0001_core_entity.sql`,
-`0002_media_work.sql`, `0003_reusable_systems.sql`, `0004_relationships.sql`, `0005_child_entities.sql`,
-`0006_aey_layer.sql`; `db/test.sh`: 73 + 94 + 149 + 98 + 104 + 91 = 609 passed, 0 failed).
-Layer 7 not started.
+Status (2026/09/16): **All seven layers written and tested** (`db/migrations/0001_core_entity.sql`
+… `0007_external_data.sql`; `db/test.sh`: 73 + 94 + 149 + 98 + 104 + 91 + 72 = 681 passed, 0 failed).
 
 ## Engine and modules
 
@@ -18,6 +16,7 @@ modularity: each layer lives in its own schema, reusable types are declared once
 | `child` | Season, Episode, Volume, DLC, Release, Cut, Soundtrack, Age Rating, Platform; plus volume ISBNs, release languages, soundtrack tracks, episode themes |
 | `world` | Franchise, Character, Person, Company, Genre, Tag, Age Rating System, Platform Family |
 | `aey`   | Aey's own layer: General Score, subratings, Aey's Take, progress and history |
+| `ext`   | Data from outside sites: sources, metrics, ratings and measurements, links |
 
 Extension: `pg_trgm` (title search).
 
@@ -634,6 +633,70 @@ was played on; a platform still recorded there cannot be deleted.
 
 ---
 
+## Layer 7 — External data
+
+### Sources, units and metrics
+
+PLANNING.md: "External rating sources and metrics are modular … without dedicated columns."
+
+| Table | Holds |
+|---|---|
+| `ext.source` | A site: code, labels, homepage. Seeded with the document's MyAnimeList, AniList, IMDb, Rotten Tomatoes, Metacritic and Letterboxd, plus HowLongToBeat for "estimated playtimes" |
+| `ext.unit` | points, percent, hours |
+| `ext.metric` | A number a source publishes, with its unit and usual scale |
+
+| Source | Metrics (scale) |
+|---|---|
+| MyAnimeList | score (1–10) |
+| AniList | average_score (0–100 %) |
+| IMDb | rating (1–10) |
+| Rotten Tomatoes | critics (0–100 %), audience (0–100 %) |
+| Metacritic | metascore (0–100), user_score (0–10) |
+| Letterboxd | rating (0.5–5) |
+| HowLongToBeat | main_story, main_extras, completionist (hours, no scale) |
+
+A new source or metric is a row; a store like Steam can be added as a source the same way.
+
+### Ratings and measurements — `ext.rating`
+
+One row per snapshot, as the document lists: target, source, metric, score, scale, optional vote
+count, source URL and recorded date.
+
+- **Scale:** stored on the row and filled from the metric when left empty on insert, so a site that
+  later changes its scale keeps old snapshots correct. Not refilled on update: a row whose metric
+  changes keeps its scale unless the update sets one.
+- **The score fits its scale;** metrics without a scale (hours) cannot go negative.
+- **History:** one snapshot per target, source, metric and date. `ext.rating_latest` shows the newest.
+- **Estimated playtimes** are rows whose metric is measured in hours — no dedicated columns.
+
+### Links — `ext.link`
+
+A URL on a target, with an optional source (a MAL page) or none (an official site), an optional
+multilingual caption, language and region (a regional store page). One link per URL per target.
+
+### Where this attaches
+
+`external` = the six media + Season, Episode, Volume, DLC, Release, Cut, Soundtrack. The document does
+not list people or companies; adding them is a row in `core.attach_kind`.
+
+### What the database enforces
+
+| Rule | Constraint |
+|---|---|
+| Metric scales have both ends and run forwards | `metric_scale_pair_ck`, `metric_scale_order_ck` |
+| Homepages and URLs start with http(s) and contain no spaces | `source_homepage_ck`, `rating_source_url_ck`, `link_url_ck` |
+| A rating names a metric that source actually has | `rating_metric_fk` |
+| The score fits the scale; unscaled measurements are not negative | `rating_score_in_scale_ck`, `rating_unscaled_not_negative_ck` |
+| One snapshot per target, source, metric and date | `rating_snapshot_uq` |
+| Vote counts are not negative | `rating_vote_count_ck` |
+| External data only on allowed kinds | `rating_allowed_fk`, `link_allowed_fk` |
+| One link per URL per target; known source if one is named | `link_url_uq`, `link_source_fk` |
+| Renaming a source carries through to metrics, ratings and links | `ON UPDATE CASCADE` |
+| A source still used by ratings or links cannot be deleted | `rating_metric_fk`, `link_source_fk` |
+| Deleting an entity removes its ratings and links | `rating_entity_fk`, `link_entity_fk` (CASCADE) |
+
+---
+
 ## Decided, not built yet
 
 - **Outlet** (magazines, web platforms such as Weekly Shōnen Jump, Shōnen Jump+, Narō): a world kind
@@ -652,6 +715,6 @@ reason counts as a failure.
 
 ---
 
-## Pending layers
+## Next
 
-7. External data — MAL, IMDb and other scores and links
+The schema covers every system in PLANNING.md. Next is the first real page on top of it.
