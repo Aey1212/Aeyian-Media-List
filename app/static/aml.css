@@ -265,6 +265,8 @@ main.wrap { padding-bottom: 56px; }
   border: 1px solid rgba(154, 160, 255, 0.3); color: var(--blue-ink);
   font: 0.62rem/1 var(--font-data); letter-spacing: 0.08em; text-transform: uppercase;
 }
+.role-chips { display: flex; flex-wrap: wrap; gap: 6px; align-self: flex-start; margin-top: 4px; }
+.role-chips .role-chip { margin-top: 0; }
 .cast { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .cast li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; font-size: 0.82rem; line-height: 1.35; }
 .cast a { min-width: 0; overflow-wrap: anywhere; }
@@ -280,6 +282,16 @@ main.wrap { padding-bottom: 56px; }
 .lang-flag-big { width: 30px; height: 30px; margin-top: 0; border-radius: 5px; }
 .lang-flag-big.lang-flag-code { font-size: 0.68rem; }
 
+/* age rating icons: tall pictures of different ratios, shown whole at the height of a title row */
+.age-ratings { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.age-rating { display: block; }
+.age-icon { display: block; width: auto; height: 56px; }
+.age-text {
+  display: flex; align-items: center; height: 56px; padding-inline: 12px;
+  border: 1px solid var(--line); border-radius: 10px; background: rgba(255, 255, 255, 0.025);
+  font: 0.72rem/1.2 var(--font-data); color: var(--text); white-space: nowrap;
+}
+
 /* every title, one equal-width row each */
 .title-list { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 /* same size rows: the note sits under the title, so it never pushes the title onto two lines */
@@ -290,7 +302,7 @@ main.wrap { padding-bottom: 56px; }
 }
 .title-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .title-text { overflow-wrap: anywhere; font-size: 0.92rem; line-height: 1.3; color: var(--white); }
-.title-romaji { overflow-wrap: anywhere; font-size: 0.78rem; line-height: 1.25; color: var(--muted); }
+.title-latinized { overflow-wrap: anywhere; font-size: 0.78rem; line-height: 1.25; color: var(--muted); }
 .title-note { font: 0.58rem/1 var(--font-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 
 .credits-row {
@@ -335,6 +347,44 @@ a.tile:hover { filter: brightness(1.25); border-color: rgba(154, 160, 255, 0.35)
 .tile-value small { margin-left: 5px; font: 0.76rem/1 var(--font-data); color: var(--muted); }
 .tile-link { padding-right: 40px; }
 .tile-arrow { position: absolute; top: 14px; right: 16px; color: var(--blue-ink); font-size: 0.95rem; line-height: 1; }
+
+/* ---------- character and person pages ---------- */
+
+.cover .pic-person { font-size: 3rem; }
+.cover .pic-portrait { border-radius: 8px; font-size: 3rem; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
+.description { margin: 18px 0 0; max-width: 62ch; line-height: 1.6; color: var(--text); }
+.appearance-meta { font: 0.72rem/1.4 var(--font-data); letter-spacing: 0.04em; color: var(--muted); }
+
+/* performance cards (voice actors on character pages, characters on person pages): big pictures,
+   people as squares with rounded corners, the language flag inside the frame */
+.voice-grid {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, 200px); gap: 32px 28px;
+}
+.voice { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.voice-frame { position: relative; }
+.pic-person {
+  width: 100%; aspect-ratio: 1 / 1; border-radius: 14px; font-size: 2.8rem;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.4);
+}
+/* bottom right: the face usually sits in the upper part of the picture */
+.voice-frame .lang-flag { position: absolute; right: 10px; bottom: 10px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.55); }
+.voice-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.voice-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.voice-name {
+  min-width: 0; overflow-wrap: anywhere; color: var(--white);
+  font: 400 1.25rem/1.15 var(--font-display); letter-spacing: 0.05em; text-transform: uppercase;
+}
+.voice-native { font-size: 0.9rem; color: var(--muted); }
+.voice-works { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.voice-works li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 0.9rem; }
+/* the work and its year wrap together */
+.voice-work { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 0 10px; }
+.voice-type {
+  flex: none; padding: 4px 7px; border-radius: 6px;
+  border: 1px solid rgba(154, 160, 255, 0.3); color: var(--blue-ink);
+  font: 0.62rem/1 var(--font-data); letter-spacing: 0.08em; text-transform: uppercase;
+}
 
 .not-found { padding-block: 64px; }
 

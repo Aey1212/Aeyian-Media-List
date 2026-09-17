@@ -24,9 +24,9 @@ Keep media-specific data in type-specific extensions rather than one huge nullab
 ## Titles
 Repeatable multilingual titles support:
 - English full/short
-- Japanese full/short plus Romaji full/short
+- Japanese full/short plus latinized full/short
 - unlimited additional languages
-- romanization where relevant
+- latinization where relevant (any non-Latin script: Japanese, Arabic, etc.)
 - potentially multiple legitimate titles per language
 
 ## Images

@@ -7,135 +7,13 @@ shows "A — Original work" on B's page and "B — Remake" on A's page.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import Any
 from urllib.parse import urlsplit
 
 import psycopg
 
-from app.labels import format_number, format_partial_date, format_signed, pick_label
-
-
-def display_titles(conn: psycopg.Connection, ids: Iterable[int], lang: str) -> dict[int, str]:
-    """One display title per entity: preferred in the language, then any in it, then native."""
-    ids = list(dict.fromkeys(ids))
-    if not ids:
-        return {}
-    rows = conn.execute(
-        """
-        SELECT DISTINCT ON (t.entity_id) t.entity_id, t.text
-          FROM core.title t
-         WHERE t.entity_id = ANY(%(ids)s)
-         ORDER BY t.entity_id,
-                  (t.lang = %(lang)s AND t.preferred) DESC,
-                  (t.lang = %(lang)s) DESC,
-                  (t.title_type = 'full') DESC,
-                  t.native DESC,
-                  t.sort_order, t.id
-        """,
-        {"ids": ids, "lang": lang},
-    ).fetchall()
-    return {r["entity_id"]: r["text"] for r in rows}
-
-
-def native_titles(conn: psycopg.Connection, ids: Iterable[int], lang: str) -> dict[int, dict[str, str]]:
-    """The native title of each entity whose native language is not the page language."""
-    ids = list(dict.fromkeys(ids))
-    if not ids:
-        return {}
-    rows = conn.execute(
-        """
-        SELECT DISTINCT ON (t.entity_id) t.entity_id, t.text, t.lang
-          FROM core.title t
-         WHERE t.entity_id = ANY(%(ids)s) AND t.native AND t.lang <> %(lang)s
-         ORDER BY t.entity_id, (t.title_type = 'full') DESC, t.sort_order, t.id
-        """,
-        {"ids": ids, "lang": lang},
-    ).fetchall()
-    return {r["entity_id"]: {"text": r["text"], "lang": r["lang"]} for r in rows}
-
-
-def pictures(conn: psycopg.Connection, ids: Iterable[int], image_types: list[str]) -> dict[int, str]:
-    """Media path (/media/<sha256>.<format>) of each entity's picture.
-
-    The first image type in the list wins; within a type, the primary image.
-    Entities without such an image are left out (the page shows initials instead).
-    """
-    ids = list(dict.fromkeys(ids))
-    if not ids:
-        return {}
-    rows = conn.execute(
-        """
-        SELECT DISTINCT ON (i.entity_id) i.entity_id, i.sha256, i.format
-          FROM core.image i
-         WHERE i.entity_id = ANY(%(ids)s) AND i.image_type = ANY(%(types)s)
-         ORDER BY i.entity_id, array_position(%(types)s, i.image_type), i.is_primary DESC, i.sort_order, i.id
-        """,
-        {"ids": ids, "types": list(image_types)},
-    ).fetchall()
-    return {r["entity_id"]: f"/media/{r['sha256']}.{r['format']}" for r in rows}
-
-
-def _title_block(conn: psycopg.Connection, entity_id: int, lang: str) -> dict[str, str | None]:
-    rows = conn.execute(
-        """
-        SELECT id, lang, title_type, text, native, preferred, romanizes_id
-          FROM core.title WHERE entity_id = %(id)s ORDER BY sort_order, id
-        """,
-        {"id": entity_id},
-    ).fetchall()
-    full = [t for t in rows if t["title_type"] == "full"] or rows
-    display = (
-        next((t for t in full if t["lang"] == lang and t["preferred"]), None)
-        or next((t for t in full if t["lang"] == lang), None)
-        or next((t for t in full if t["native"]), None)
-        or (full[0] if full else None)
-    )
-    native = next((t for t in full if t["native"]), None)
-    romanized = next((t for t in rows if native is not None and t["romanizes_id"] == native["id"]), None)
-    return {
-        "title": display["text"] if display else None,
-        "native_title": native["text"] if native and (display is None or native["id"] != display["id"]) else None,
-        "native_lang": native["lang"] if native else None,
-        "romanized_title": romanized["text"] if romanized else None,
-    }
-
-
-def _all_titles(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
-    """Every title the work is known by: native first, then the page language, then the rest;
-    full titles before short and alternative ones.
-
-    A romanization is not its own entry: it rides on the title it spells out
-    (the romaji under the Japanese title).
-    """
-    rows = conn.execute(
-        """
-        SELECT t.id, t.lang, t.text, t.native, t.romanizes_id, t.title_type, tt.labels AS type_labels
-          FROM core.title t
-          JOIN core.title_type tt ON tt.code = t.title_type
-         WHERE t.entity_id = %(id)s
-         ORDER BY tt.sort_order, t.native DESC, (t.lang = %(lang)s) DESC, t.preferred DESC,
-                  t.lang, t.sort_order, t.text
-        """,
-        {"id": entity_id, "lang": lang},
-    ).fetchall()
-    romanizations: dict[int, dict[str, Any]] = {}
-    for r in rows:
-        if r["romanizes_id"] is not None:
-            romanizations.setdefault(r["romanizes_id"], r)
-    return [
-        {
-            "lang": r["lang"],
-            "text": r["text"],
-            "native": r["native"],
-            "romanization": romanizations[r["id"]]["text"] if r["id"] in romanizations else None,
-            "romanization_lang": romanizations[r["id"]]["lang"] if r["id"] in romanizations else None,
-            "type_code": r["title_type"],
-            "type": pick_label(r["type_labels"], lang),
-        }
-        for r in rows
-        if r["romanizes_id"] is None
-    ]
+from app.data.common import aey_data, all_titles, display_titles, native_titles, pictures, title_block
+from app.labels import format_number, format_partial_date, pick_label
 
 
 def _media_relations(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
@@ -453,65 +331,41 @@ def _platforms(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict
     return [{"title": titles.get(r["id"]), "address": r["address"]} for r in rows]
 
 
-def _aey(conn: psycopg.Connection, entity_id: int, lang: str) -> dict[str, Any]:
-    params = {"id": entity_id, "lang": lang}
-    score = conn.execute(
+def _age_ratings(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
+    """The work's age ratings, one per system, with icons.
+
+    Systems covering the work's countries of origin come first (CERO for a Japanese
+    game), then systems in the order they were added.
+    """
+    rows = conn.execute(
         """
-        SELECT general, aey.score_shown(general) AS shown, aey.half_stars(general) AS half_stars
-          FROM aey.score WHERE entity_id = %(id)s
+        SELECT a.rating_id, a.system_id, core.address(a.rating_id) AS address, ar.min_age
+          FROM core.entity_age_rating a
+          JOIN core.entity r ON r.id = a.rating_id AND r.published_at IS NOT NULL
+          JOIN core.entity s ON s.id = a.system_id AND s.published_at IS NOT NULL
+          JOIN child.age_rating ar ON ar.entity_id = a.rating_id
+          JOIN world.age_rating_system sys ON sys.entity_id = a.system_id
+         WHERE a.entity_id = %(id)s
+         ORDER BY sys.regions::text[] && ARRAY(SELECT oc.country::text FROM core.entity_origin_country oc
+                                               WHERE oc.entity_id = %(id)s) DESC,
+                  s.seq, s.id
         """,
-        params,
-    ).fetchone()
-    subratings = conn.execute(
-        """
-        SELECT c.labels, s.value, aey.score_shown(s.value) AS shown, aey.half_stars(s.value) AS half_stars
-          FROM aey.subrating s JOIN aey.subrating_category c ON c.code = s.category
-         WHERE s.entity_id = %(id)s
-         ORDER BY c.sort_order, c.code
-        """,
-        params,
+        {"id": entity_id},
     ).fetchall()
-    take = conn.execute(
-        "SELECT lang, body FROM aey.take WHERE entity_id = %(id)s ORDER BY (lang = %(lang)s) DESC, lang LIMIT 1",
-        params,
-    ).fetchone()
-    progress = conn.execute(
-        """
-        SELECT st.labels AS status_labels, p.progress_value, u.labels AS unit_labels,
-               p.times_completed, p.time_spent_s, p.started_on, p.finished_on
-          FROM aey.progress p
-          LEFT JOIN aey.status st ON st.code = p.status
-          LEFT JOIN media.cadence_item u ON u.code = p.progress_unit
-         WHERE p.entity_id = %(id)s
-        """,
-        params,
-    ).fetchone()
-    return {
-        "score": None if score is None else {
-            "general": score["general"],
-            "shown": format_signed(score["shown"]),
-            "half_stars": score["half_stars"],
-        },
-        "subratings": [
-            {
-                "label": pick_label(s["labels"], lang),
-                "value": s["value"],
-                "shown": format_signed(s["shown"]),
-                "half_stars": s["half_stars"],
-            }
-            for s in subratings
-        ],
-        "take": None if take is None else {"lang": take["lang"], "body": take["body"]},
-        "progress": None if progress is None else {
-            "status": pick_label(progress["status_labels"], lang),
-            "value": format_number(progress["progress_value"]),
-            "unit": pick_label(progress["unit_labels"], lang),
-            "times_completed": progress["times_completed"],
-            "hours": format_number(round(progress["time_spent_s"] / 3600, 1)) if progress["time_spent_s"] else None,
-            "started_on": format_partial_date(progress["started_on"]),
-            "finished_on": format_partial_date(progress["finished_on"]),
-        },
-    }
+    titles = display_titles(conn, [*(r["system_id"] for r in rows), *(r["rating_id"] for r in rows)], lang)
+    icons = pictures(conn, (r["rating_id"] for r in rows), ["icon"])
+    return [
+        {
+            "system": titles.get(r["system_id"]),
+            "rating": titles.get(r["rating_id"]),
+            # a rating's name does not repeat its system's: "PEGI" + "16"
+            "label": " ".join(t for t in (titles.get(r["system_id"]), titles.get(r["rating_id"])) if t),
+            "address": r["address"],
+            "icon": icons.get(r["rating_id"]),
+            "min_age": r["min_age"],
+        }
+        for r in rows
+    ]
 
 
 def _external(conn: psycopg.Connection, entity_id: int, lang: str) -> dict[str, list[dict[str, Any]]]:
@@ -603,8 +457,8 @@ def load_work(conn: psycopg.Connection, entity_id: int, lang: str = "en") -> dic
         "id": head["id"],
         "address": head["address"],
         "kind": pick_label(head["kind_labels"], lang),
-        **_title_block(conn, entity_id, lang),
-        "titles": _all_titles(conn, entity_id, lang),
+        **title_block(conn, entity_id, lang),
+        "titles": all_titles(conn, entity_id, lang),
         "status": pick_label(head["status_labels"], lang),
         "start_date": format_partial_date(head["start_date"]),
         "end_date": format_partial_date(head["end_date"]),
@@ -618,6 +472,7 @@ def load_work(conn: psycopg.Connection, entity_id: int, lang: str = "en") -> dic
         "companies": companies,
         "staff": staff,
         "platforms": _platforms(conn, entity_id, lang),
-        "aey": _aey(conn, entity_id, lang),
+        "age_ratings": _age_ratings(conn, entity_id, lang),
+        "aey": aey_data(conn, entity_id, lang),
         "external": _external(conn, entity_id, lang),
     }

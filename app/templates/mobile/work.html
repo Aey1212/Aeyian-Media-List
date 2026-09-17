@@ -1,5 +1,6 @@
 {% extends "mobile/base.html" %}
 {% import "macros.html" as m %}
+{% import "mobile/parts.html" as parts %}
 {% block title %}{{ work.title }} · AML{% endblock %}
 {% block content %}
 {% set aey = work.aey %}
@@ -10,42 +11,18 @@
     <div>
       <p class="eyebrow">{{ work.kind }}{% if work.start_date %} · {{ work.start_date }}{% endif %}{% if work.end_date %} – {{ work.end_date }}{% endif %}</p>
       <h1 class="m-title">{{ work.title }}</h1>
-      {% if work.native_title or work.romanized_title %}
+      {% if work.native_title or work.latinized_title %}
       <p class="alt m-alt">
         {%- if work.native_title %}<span lang="{{ work.native_lang }}">{{ work.native_title }}</span>{% endif -%}
-        {%- if work.romanized_title %}<span>{{ work.romanized_title }}</span>{% endif -%}
+        {%- if work.latinized_title %}<span>{{ work.latinized_title }}</span>{% endif -%}
       </p>
       {% endif %}
     </div>
   </header>
 
-  <section class="m-score" aria-label="Aey">
-    <div class="m-score-head">
-      <span class="score-label">General Score</span>
-      {% if aey.score %}
-      <span class="m-score-num">{{ aey.score.shown }}</span>
-      {% else %}
-      <span class="m-score-num no-score">—</span>
-      {% endif %}
-    </div>
-    {{ m.scale(aey.score.half_stars if aey.score else 0, aey.score.shown if aey.score else 'not rated') }}
-    {% if not aey.score %}<span class="score-raw">Not rated yet</span>{% endif %}
-    {% if aey.progress %}
-    <span class="score-progress">
-      {{- aey.progress.status or '' -}}
-      {%- if aey.progress.value %} · {{ aey.progress.unit }} {{ aey.progress.value }}{% endif -%}
-      {%- if aey.progress.hours %} · {{ aey.progress.hours }} h{% endif -%}
-      {%- if aey.progress.times_completed %} · {{ aey.progress.times_completed }}× completed{% endif -%}
-    </span>
-    {% endif %}
-  </section>
+  {{ parts.score(aey) }}
 
-  {% if aey.take %}
-  <section class="take m-take">
-    <h2 class="section-title">Aey's Take</h2>
-    <p class="take-body" lang="{{ aey.take.lang }}">{{ aey.take.body }}</p>
-  </section>
-  {% endif %}
+  {{ parts.take(aey) }}
 
   <dl class="m-info">
     {% if work.titles %}<div class="wide"><dt>Titles</dt><dd>{{ m.title_list(work.titles, flag) }}</dd></div>{% endif %}
@@ -54,6 +31,7 @@
     {% if work.platforms %}
     <div class="wide"><dt>Platforms</dt><dd>{% for p in work.platforms %}<a href="{{ base }}{{ p.address }}">{{ p.title }}</a>{% if not loop.last %}<span class="sep"> · </span>{% endif %}{% endfor %}</dd></div>
     {% endif %}
+    {% if work.age_ratings %}<div class="wide"><dt>Age Ratings</dt><dd>{{ m.age_ratings(base, work.age_ratings) }}</dd></div>{% endif %}
   </dl>
 
   {% if work.relations or work.franchises %}
@@ -81,19 +59,7 @@
   </ul>
   {% endif %}
 
-  {% if aey.subratings %}
-  <section class="m-block">
-    <h2 class="section-title">Subratings</h2>
-    <div class="m-subs">
-      {% for s in aey.subratings %}
-      <div class="m-sub">
-        <div class="m-sub-head"><span>{{ s.label }}</span><span class="sub-num">{{ s.shown }}</span></div>
-        {{ m.scale(s.half_stars, s.shown, small=true) }}
-      </div>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
+  {{ parts.subratings(aey) }}
 
   {% if work.characters %}
   <section class="m-block">
@@ -105,14 +71,8 @@
         <div class="character-body">
           <a class="character-name" href="{{ base }}{{ c.address }}">{{ c.title }}</a>
           {% if c.native_title %}<span class="character-native" lang="{{ c.native_lang }}">{{ c.native_title }}</span>{% endif %}
-          {% if c.roles %}<span class="role-chip">{{ c.roles | join(' · ') }}</span>{% endif %}
-          {% if c.cast %}
-          <ul class="cast">
-            {% for x in c.cast %}
-            <li>{% if x.lang %}{{ m.lang_flag(flag(x.lang), x.lang, x.type) }}{% else %}<span class="cast-type">{{ x.type }}</span>{% endif %}<a href="{{ base }}{{ x.address }}">{{ x.title }}</a></li>
-            {% endfor %}
-          </ul>
-          {% endif %}
+          {{ m.role_chips(c.roles, c.note) }}
+          {% if c.cast %}{{ m.cast(base, flag, c.cast) }}{% endif %}
         </div>
       </li>
       {% endfor %}

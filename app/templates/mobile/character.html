@@ -1,0 +1,56 @@
+{% extends "mobile/base.html" %}
+{% import "macros.html" as m %}
+{% import "mobile/parts.html" as parts %}
+{% block title %}{{ character.title }} · AML{% endblock %}
+{% block content %}
+{% set aey = character.aey %}
+{% set first = character.appearances[0] if character.appearances else none %}
+<article class="m-work">
+
+  <header class="m-top">
+    <div class="m-portrait">{{ m.picture(base, character.picture, character.title, 'portrait') }}</div>
+    <div>
+      <p class="eyebrow">{{ character.kind }}</p>
+      <h1 class="m-title">{{ character.title }}</h1>
+      {% if character.native_title or character.latinized_title %}
+      <p class="alt m-alt">
+        {%- if character.native_title %}<span lang="{{ character.native_lang }}">{{ character.native_title }}</span>{% endif -%}
+        {%- if character.latinized_title %}<span>{{ character.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if character.description %}
+  <p class="description m-description" lang="{{ character.description.lang }}">{{ character.description.body }}</p>
+  {% endif %}
+
+  {{ parts.score(aey) }}
+
+  {{ parts.take(aey) }}
+
+  <dl class="m-info">
+    {% if character.titles %}<div class="wide"><dt>Names</dt><dd>{{ m.title_list(character.titles, flag) }}</dd></div>{% endif %}
+    {% if first %}
+    <div class="wide"><dt>First Appearance</dt><dd><a href="{{ base }}{{ first.address }}">{{ first.title }}</a>{% if first.year %} <span class="year">{{ first.year }}</span>{% endif %}</dd></div>
+    {% endif %}
+  </dl>
+
+  {{ parts.subratings(aey) }}
+
+  {% if character.cast %}
+  <section class="m-block">
+    <h2 class="section-title">Voice Actors</h2>
+    {{ m.cast_cards(base, flag, character.cast, 'voice-grid m-voice-grid') }}
+  </section>
+  {% endif %}
+
+  {% if character.appearances %}
+  <section class="m-block">
+    <h2 class="section-title">Appearances</h2>
+    {{ m.work_cards(base, character.appearances, 'm-characters') }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}

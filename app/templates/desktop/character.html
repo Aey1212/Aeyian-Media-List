@@ -1,0 +1,57 @@
+{% extends "desktop/base.html" %}
+{% import "macros.html" as m %}
+{% import "desktop/parts.html" as parts %}
+{% block title %}{{ character.title }} · Aeyian Media List{% endblock %}
+{% block content %}
+{% set aey = character.aey %}
+{% set first = character.appearances[0] if character.appearances else none %}
+<article class="character-page">
+
+  <div class="entry">
+    <div class="cover">
+      {{ m.picture(base, character.picture, character.title, 'portrait') }}
+    </div>
+
+    <div class="entry-main">
+      <p class="eyebrow">{{ character.kind }}</p>
+      <h1 class="title">{{ character.title }}</h1>
+      {% if character.native_title or character.latinized_title %}
+      <p class="alt">
+        {%- if character.native_title %}<span lang="{{ character.native_lang }}">{{ character.native_title }}</span>{% endif -%}
+        {%- if character.native_title and character.latinized_title %} · {% endif -%}
+        {%- if character.latinized_title %}<span>{{ character.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+      {% if character.description %}
+      <p class="description" lang="{{ character.description.lang }}">{{ character.description.body }}</p>
+      {% endif %}
+    </div>
+
+    <dl class="info">
+      {% if character.titles %}<div><dt>Names</dt><dd>{{ m.title_list(character.titles, flag) }}</dd></div>{% endif %}
+      {% if first %}
+      <div><dt>First Appearance</dt><dd><a href="{{ base }}{{ first.address }}">{{ first.title }}</a>{% if first.year %} <span class="year">{{ first.year }}</span>{% endif %}</dd></div>
+      {% endif %}
+    </dl>
+  </div>
+
+  {{ parts.score_band(aey) }}
+
+  {{ parts.subratings_and_take(aey) }}
+
+  {% if character.cast %}
+  <section class="people-section" aria-labelledby="voice-actors-title">
+    <h2 class="section-title" id="voice-actors-title">Voice Actors</h2>
+    {{ m.cast_cards(base, flag, character.cast) }}
+  </section>
+  {% endif %}
+
+  {% if character.appearances %}
+  <section class="people-section" aria-labelledby="appearances-title">
+    <h2 class="section-title" id="appearances-title">Appearances</h2>
+    {{ m.work_cards(base, character.appearances, 'character-grid') }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}

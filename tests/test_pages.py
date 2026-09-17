@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import re
 
 import psycopg
 import pytest
@@ -292,12 +293,51 @@ def test_titles_sit_above_status_with_big_flags(client, host):
     html = client.get("/AML/04/0001/002", headers={"host": host}).text
     facts = html.split('class="info"' if host == "aeyempire.com" else 'class="m-info"', 1)[1].split("</dl>", 1)[0]
     assert facts.index("<dt>Titles</dt>") < facts.index("<dt>Status</dt>")
-    assert facts.count('<li class="title-row">') == 2                                            # romaji is not its own row
+    assert facts.count('<li class="title-row">') == 2                                            # the latinized title is not its own row
     assert facts.count('<img class="lang-flag lang-flag-big" src="/AML/flags/JA.png?v=') == 1
     assert facts.count('<img class="lang-flag lang-flag-big" src="/AML/flags/EN.png?v=') == 1
     assert ('<span class="title-text" lang="ja">ペルソナ3 リロード</span>'
-            '<span class="title-romaji" lang="ja-Latn">Perusona Surī Rirōdo</span>') in facts
-    assert "Romanized" not in facts
+            '<span class="title-latinized" lang="ja-Latn">Perusona Surī Rirōdo</span>') in facts
+    assert "Latinized" not in facts and "Romanized" not in facts
+
+
+@pytest.mark.parametrize("host", ["aeyempire.com", "m.aeyempire.com"])
+def test_age_rating_icons_in_the_facts_after_platforms(client, host):
+    html = client.get("/AML/04/0001/002", headers={"host": host}).text
+    facts = html.split('class="info"' if host == "aeyempire.com" else 'class="m-info"', 1)[1].split("</dl>", 1)[0]
+    assert facts.index("<dt>Platforms</dt>") < facts.index("<dt>Age Ratings</dt>")
+    ratings = facts.split("<dt>Age Ratings</dt>", 1)[1].split("</ul>", 1)[0]
+    shown = re.findall(r'<a class="age-rating" href="(/AML/29/[0-9/]+)" title="([^"]+)"><img class="age-icon" src="/AML/media/[0-9a-f]{64}\.svg" alt="([^"]+)"></a>', ratings)
+    assert shown == [
+        ("/AML/29/03/19/03", "CERO C", "CERO C"),
+        ("/AML/29/01/19/04", "PEGI 16", "PEGI 16"),
+        ("/AML/29/02/19/05", "ESRB Mature 17+", "ESRB Mature 17+"),
+    ]
+
+
+def test_age_rating_icons_are_served_as_svg(client):
+    html = client.get("/AML/04/0001/002").text
+    for src in re.findall(r'<img class="age-icon" src="(/AML/media/[0-9a-f]{64}\.svg)"', html):
+        served = client.get(src)
+        assert served.status_code == 200 and served.headers["content-type"] == "image/svg+xml"
+        assert served.content.lstrip().startswith((b"<?xml", b"<svg", b"<!DOCTYPE"))
+
+
+def test_a_rating_without_an_icon_shows_its_name(client):   # client: skip when the dev database is down
+    from psycopg.rows import dict_row
+
+    from app.data.work import load_work
+    from app.main import TEMPLATES
+
+    # The icon is removed inside a transaction that is rolled back, so the page is
+    # rendered from that transaction's data rather than through the app's own connection.
+    with psycopg.connect(URL, row_factory=dict_row, autocommit=True) as conn:
+        with conn.transaction(force_rollback=True):
+            conn.execute("DELETE FROM core.image WHERE entity_id = (SELECT entity_id FROM core.resolve('/29/03/19/03'))")
+            work = load_work(conn, conn.execute("SELECT entity_id FROM core.resolve('/04/0001/002')").fetchone()["entity_id"])
+    html = str(TEMPLATES.env.get_template("macros.html").module.age_ratings("/AML", work["age_ratings"]))
+    assert '<a class="age-rating" href="/AML/29/03/19/03" title="CERO C"><span class="age-text">CERO C</span></a>' in html
+    assert html.count('<img class="age-icon"') == 2
 
 
 def test_arabic_uses_the_msa_flag(client, tmp_path):
@@ -349,6 +389,18 @@ def test_a_real_logo_is_shown_and_served(client, tmp_path):
             assert served.content == PNG_1X1
         finally:
             conn.execute("DELETE FROM core.image WHERE entity_id = %s AND sha256 = %s", (atlus, sha))
+
+
+def test_media_files_cannot_run_script_when_opened_directly(client, tmp_path):
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+    name = hashlib.sha256(svg).hexdigest() + ".svg"
+    (tmp_path / name).write_bytes(svg)
+    app = TestClient(create_app(Settings(root_path="/AML", database_url=URL, media_dir=str(tmp_path))))
+    served = app.get(f"/AML/media/{name}")
+    assert served.status_code == 200 and served.headers["content-type"] == "image/svg+xml"
+    policy = served.headers["content-security-policy"]
+    assert "default-src 'none'" in policy and "sandbox" in policy and "script" not in policy
+    assert served.headers["x-content-type-options"] == "nosniff"
 
 
 def test_missing_media_file_is_404(client, tmp_path):

@@ -16,6 +16,8 @@ from fastapi.templating import Jinja2Templates
 
 from app.config import Settings, load_settings
 from app.data.address import resolve
+from app.data.character import load_character
+from app.data.person import load_person
 from app.data.work import load_work
 from app.db import connect
 
@@ -33,10 +35,34 @@ MENU = [
     ("Movies", "06"),
 ]
 
+# Which loader and template draw a page, by entity kind. Every media work uses "work".
+PAGES = {
+    "character": (load_character, "character"),
+    "person": (load_person, "person"),
+}
+MEDIA_PAGE = (load_work, "work")
+
 # Square language flags, looked up in this order of file types.
 FLAG_EXTENSIONS = ("svg", "png", "webp")
 # Language codes whose flag file in Aey's pack has another name (Arabic is tagged ar, drawn as MSA).
 FLAG_ALIASES = {"ar": "MSA"}
+
+
+class MediaFiles(StaticFiles):
+    """Pictures from the media folder.
+
+    An SVG opened on its own (not through an <img>) is a document that could run script
+    on the site. This policy keeps every media file an inert picture; pictures shown in
+    pages are not affected.
+    """
+
+    POLICY = "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox"
+
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Content-Security-Policy"] = self.POLICY
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 def create_site(settings: Settings) -> FastAPI:
@@ -46,7 +72,7 @@ def create_site(settings: Settings) -> FastAPI:
     Path(settings.media_dir).mkdir(parents=True, exist_ok=True)
     Path(settings.flags_dir).mkdir(parents=True, exist_ok=True)
     site.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
-    site.mount("/media", StaticFiles(directory=settings.media_dir), name="media")
+    site.mount("/media", MediaFiles(directory=settings.media_dir), name="media")
     site.mount("/flags", StaticFiles(directory=settings.flags_dir), name="flags")
 
     def asset(name: str) -> str:
@@ -120,10 +146,12 @@ def create_site(settings: Settings) -> FastAPI:
                 if request.url.query:
                     target += "?" + request.url.query
                 return RedirectResponse(target, status_code=301)
-            work = load_work(conn, found["entity_id"], settings.lang)
-        if work is None:   # a draft, or a kind whose page is not built yet
+            kind = conn.execute("SELECT kind FROM core.entity WHERE id = %s", (found["entity_id"],)).fetchone()["kind"]
+            loader, name = PAGES.get(kind, MEDIA_PAGE)
+            page = loader(conn, found["entity_id"], settings.lang)
+        if page is None:   # a draft, or a kind whose page is not built yet
             return not_found(request)
-        return TEMPLATES.TemplateResponse(request, f"{variant(request)}/work.html", page_context(work=work))
+        return TEMPLATES.TemplateResponse(request, f"{variant(request)}/{name}.html", page_context(**{name: page}))
 
     return site
 

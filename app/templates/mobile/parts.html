@@ -1,0 +1,53 @@
+{#- Mobile pieces every rateable page shares. -#}
+{% import "macros.html" as m %}
+
+{#- General Score on the flag arm, with Aey's progress under it when there is some. -#}
+{% macro score(aey) -%}
+<section class="m-score" aria-label="Aey">
+  <div class="m-score-head">
+    <span class="score-label">General Score</span>
+    {% if aey.score %}
+    <span class="m-score-num">{{ aey.score.shown }}</span>
+    {% else %}
+    <span class="m-score-num no-score">—</span>
+    {% endif %}
+  </div>
+  {{ m.scale(aey.score.half_stars if aey.score else 0, aey.score.shown if aey.score else 'not rated') }}
+  {% if not aey.score %}<span class="score-raw">Not rated yet</span>{% endif %}
+  {% if aey.progress %}
+  <span class="score-progress">
+    {{- aey.progress.status or '' -}}
+    {%- if aey.progress.value %} · {{ aey.progress.unit }} {{ aey.progress.value }}{% endif -%}
+    {%- if aey.progress.hours %} · {{ aey.progress.hours }} h{% endif -%}
+    {%- if aey.progress.times_completed %} · {{ aey.progress.times_completed }}× completed{% endif -%}
+  </span>
+  {% endif %}
+</section>
+{%- endmacro %}
+
+{#- Aey's Take, when there is one. -#}
+{% macro take(aey) -%}
+{% if aey.take %}
+<section class="take m-take">
+  <h2 class="section-title">Aey's Take</h2>
+  <p class="take-body" lang="{{ aey.take.lang }}">{{ aey.take.body }}</p>
+</section>
+{% endif %}
+{%- endmacro %}
+
+{#- Subratings, when there are any. -#}
+{% macro subratings(aey) -%}
+{% if aey.subratings %}
+<section class="m-block">
+  <h2 class="section-title">Subratings</h2>
+  <div class="m-subs">
+    {% for s in aey.subratings %}
+    <div class="m-sub">
+      <div class="m-sub-head"><span>{{ s.label }}</span><span class="sub-num">{{ s.shown }}</span></div>
+      {{ m.scale(s.half_stars, s.shown, small=true) }}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{%- endmacro %}

@@ -26,10 +26,10 @@ END $$;
 
 CREATE FUNCTION pg_temp.title(p_entity bigint, p_lang text, p_text text,
                               p_native boolean DEFAULT false, p_preferred boolean DEFAULT false,
-                              p_romanizes bigint DEFAULT NULL)
+                              p_latinizes bigint DEFAULT NULL)
 RETURNS bigint LANGUAGE sql AS $$
-  INSERT INTO core.title (entity_id, lang, title_type, text, native, preferred, romanizes_id)
-  VALUES (p_entity, p_lang, 'full', p_text, p_native, p_preferred, p_romanizes)
+  INSERT INTO core.title (entity_id, lang, title_type, text, native, preferred, latinizes_id)
+  VALUES (p_entity, p_lang, 'full', p_text, p_native, p_preferred, p_latinizes)
   RETURNING id
 $$;
 
@@ -63,7 +63,7 @@ BEGIN
   meguro := core.create_entity('person');
   PERFORM pg_temp.title(meguro, 'en', 'Shoji Meguro', p_preferred => true);
   ja := pg_temp.title(meguro, 'ja', '目黒将司', p_native => true);
-  PERFORM pg_temp.title(meguro, 'ja-Latn', 'Meguro Shōji', p_romanizes => ja);
+  PERFORM pg_temp.title(meguro, 'ja-Latn', 'Meguro Shōji', p_latinizes => ja);
 
   -- platforms
   fam_ps := core.create_entity('platform_family');   PERFORM pg_temp.title(fam_ps, 'en', 'PlayStation', p_preferred => true);
@@ -88,7 +88,7 @@ BEGIN
   p3 := core.create_entity('game', persona);
   PERFORM pg_temp.title(p3, 'en', 'Persona 3', p_preferred => true);
   ja := pg_temp.title(p3, 'ja', 'ペルソナ3', p_native => true);
-  PERFORM pg_temp.title(p3, 'ja-Latn', 'Perusona Surī', p_romanizes => ja);
+  PERFORM pg_temp.title(p3, 'ja-Latn', 'Perusona Surī', p_latinizes => ja);
   UPDATE media.work SET status = 'released', start_date = '2006-07-13', source_type = 'original' WHERE entity_id = p3;
   UPDATE media.game SET local_players_min = 1, local_players_max = 1, online_players_min = 0, online_players_max = 0 WHERE entity_id = p3;
   INSERT INTO core.entity_genre (entity_id, entity_kind, genre_id) VALUES (p3, 'game', g_jrpg), (p3, 'game', g_social);
@@ -102,7 +102,7 @@ BEGIN
   p3r := core.create_entity('game', persona);
   PERFORM pg_temp.title(p3r, 'en', 'Persona 3 Reload', p_preferred => true);
   ja := pg_temp.title(p3r, 'ja', 'ペルソナ3 リロード', p_native => true);
-  PERFORM pg_temp.title(p3r, 'ja-Latn', 'Perusona Surī Rirōdo', p_romanizes => ja);
+  PERFORM pg_temp.title(p3r, 'ja-Latn', 'Perusona Surī Rirōdo', p_latinizes => ja);
   UPDATE media.work SET status = 'released', start_date = '2024-02-02', source_type = 'game' WHERE entity_id = p3r;
   UPDATE media.game SET local_players_min = 1, local_players_max = 1, online_players_min = 0, online_players_max = 0 WHERE entity_id = p3r;
   INSERT INTO core.media_relation (source_id, source_kind, relation_type, target_id, target_kind) VALUES (p3r, 'game', 'remake_of', p3, 'game');

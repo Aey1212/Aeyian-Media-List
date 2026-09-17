@@ -1,7 +1,8 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/16): **All seven layers written and tested** (`db/migrations/0001_core_entity.sql`
-… `0007_external_data.sql`; `db/test.sh`: 73 + 94 + 149 + 98 + 104 + 91 + 72 = 681 passed, 0 failed).
+Status (2026/09/17): **All seven layers written and tested**, plus kind labels (0008) and latinized
+titles (0009) (`db/migrations/0001_core_entity.sql` … `0009_latinized_titles.sql`; `db/test.sh`:
+73 + 94 + 149 + 98 + 104 + 91 + 72 + 8 + 10 = 699 passed, 0 failed).
 
 ## Engine and modules
 
@@ -298,7 +299,7 @@ Turning a row into words ("Weekly", "Haftalık") is the backend's job, per langu
 
 | Type | Rule |
 |---|---|
-| `core.lang_tag` | Language tag: `en`, `ja`, `tr`, `ja-Latn` (romaji), `pt-BR` … |
+| `core.lang_tag` | Language tag: `en`, `ja`, `tr`, `ja-Latn` (latinized Japanese), `ar-Latn`, `pt-BR` … |
 | `core.country_code` | ISO 3166-1 alpha-2, uppercase: `JP`, `TR`, `US`, `EU` |
 
 ### Titles — `core.title`, for every entity
@@ -312,14 +313,15 @@ Names of people, characters, companies, genres, tags and age ratings live here t
 | `text` | The title |
 | `native` | The title in the original language |
 | `preferred` | Shown for this language and type when there are several |
-| `romanizes_id` | A romanized title points to the title it spells out |
+| `latinizes_id` | A latinized title points to the title it spells out in Latin script |
 | `sort_order` | Order among titles |
 
 - **At most one native title per type** per entity (one native full, one native short).
 - **At most one preferred title** per language and type.
-- **A romanization** uses a Latin-script tag (`ja-Latn`), belongs to the same entity and type as its
-  source, is never native, and cannot point at itself. A title that a romanization points to cannot be
-  deleted on its own; deleting the whole entity removes both.
+- **A latinized title** uses a Latin-script tag (`ja-Latn`, `ar-Latn`), belongs to the same entity and type
+  as its source, is never native, and cannot point at itself. A title that a latinized title points to
+  cannot be deleted on its own; deleting the whole entity removes both. The same mechanics serve every
+  non-Latin script (Japanese, Arabic …). Called "romanization" until migration 0009.
 - **The same text** cannot repeat for one language and type.
 - **A published entity must have at least one title.** This is checked at commit, so one transaction
   can create an entity, publish it and add its title in any order, or replace its only title.
@@ -401,7 +403,7 @@ One row per (system, kind). Extending a system to another kind is a row.
 |---|---|
 | Language tags and country codes are well-formed | `lang_tag_ck`, `country_code_ck` |
 | One native title per type; one preferred per language and type | `title_native_uq`, `title_preferred_uq` |
-| Romanization: same entity and type, Latin script, not native, not itself | `title_romanizes_fk`, `title_romanization_latin_ck`, `title_romanization_not_native_ck`, `title_romanizes_self_ck` |
+| Latinized title: same entity and type, Latin script, not native, not itself | `title_latinizes_fk`, `title_latinized_latin_ck`, `title_latinized_not_native_ck`, `title_latinizes_self_ck` |
 | No blank or duplicate titles; known title type | `title_text_ck`, `title_text_uq`, `title_type_fk` |
 | Published entities have a title (at commit) | triggers `entity_publish_needs_title`, `title_removal_keeps_one` |
 | One text per entity, type and language; not blank | `entity_text_pkey`, `entity_text_body_ck` |
@@ -537,7 +539,7 @@ labels are credits from layer 4; age ratings attach from layer 3; store links ar
 ### Tracks and themes
 
 Tracks are rows, not entities — no address and no page of their own, as the document asks. A track has
-a disc number, a track number, a multilingual title (so Japanese and romaji both fit) and a runtime.
+a disc number, a track number, a multilingual title (so Japanese and its latinized form both fit) and a runtime.
 Track numbers are unique per soundtrack and disc, with "no disc number" counted as a value.
 
 `child.episode_theme` links a track to an episode as its opening, ending, insert song or theme.
@@ -712,9 +714,9 @@ that stay sharp on a high-density screen.
 | volume_cover | 3:4 | 600 × 800 | rounded rectangle |
 | box_art | 3:4 | 600 × 800 | rounded rectangle |
 | portrait (characters) | 3:4 | 480 × 640 | rounded rectangle |
-| portrait (people) | 3:4 source | 480 × 640 | shown as a circle, centre crop |
+| portrait (people) | 1:1 | 720 × 720 | square with rounded corners (voice actor cards on character pages, the person's own page); small circle in staff credits on work pages |
 | logo | any ratio, transparent PNG or SVG | 512 on the long side | fitted whole inside a square tile |
-| icon | 1:1 | 256 × 256 | small rounded square |
+| icon (age ratings) | tall, any ratio (Aey's pack: PEGI and CERO about 4:5, ESRB 2:3); SVG preferred | raster at least 256 tall | shown whole at a fixed height, never cropped |
 | banner | 4:1 | 1600 × 400 | full-width strip |
 | backdrop | 16:9 | 1920 × 1080 | background |
 | thumbnail | 16:9 | 640 × 360 | rounded rectangle |
@@ -735,14 +737,14 @@ Which pictures each kind uses:
 | Soundtrack | cover 1:1 | — |
 | Franchise | logo | banner 4:1 |
 | Character | portrait 3:4 | — |
-| Person | portrait 3:4 (circle) | — |
+| Person | portrait 1:1 | — |
 | Company, Platform Family, Platform, Age Rating System | logo | — |
-| Age Rating | icon 1:1 | — |
+| Age Rating | icon, tall | — |
 | Genre, Tag | none | — |
 
-Frames on the page today: cover 3:4, character portrait 3:4, person portrait circle, company logo
-tile, language flags. Banner, backdrop, thumbnail, icon and the soundtrack's square cover get their
-frames when those pages are built.
+Frames on the page today: cover 3:4, character portrait 3:4, person portrait rounded square
+(voice actor cards, person pages), person portrait circle (staff credits), company logo tile, language flags, age rating icons (56 px tall on desktop, 48 px on mobile). Banner, backdrop,
+thumbnail and the soundtrack's square cover get their frames when those pages are built.
 
 ---
 

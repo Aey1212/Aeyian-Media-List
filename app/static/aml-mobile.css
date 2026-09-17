@@ -35,6 +35,13 @@ body.m { font-size: 15px; }
 .m-top { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; align-items: start; padding-block: 24px 20px; }
 .m-top-plain { grid-template-columns: 1fr; padding-block: 48px; }
 .m-cover { width: 72px; border-radius: 6px; }
+.m-portrait .pic-portrait { border-radius: 6px; font-size: 1.4rem; }
+.m-portrait .pic-person { border-radius: 10px; font-size: 1.4rem; box-shadow: none; }
+.m-description { margin: 0 0 20px; font-size: 0.95rem; }
+/* performance cards: two to a row on phones */
+.m-voice-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 14px; }
+.m-voice-grid .pic-person { border-radius: 12px; font-size: 2.4rem; }
+.m-voice-grid .voice-name { font-size: 1.05rem; }
 .m-title {
   margin: 8px 0 0;
   font: 400 1.9rem/1.05 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--white);
@@ -59,6 +66,9 @@ body.m { font-size: 15px; }
 .m-info dd a { white-space: nowrap; }
 .m-info .sep { color: var(--faint); }
 .m-info .wide { grid-column: 1 / -1; }
+/* a page with no score band: the facts start right under the header rule */
+.m-info-first { margin-top: 0; padding-top: 20px; border-top: 1px solid var(--line); }
+.m-info .age-icon, .m-info .age-text { height: 48px; }
 
 .m-block { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 

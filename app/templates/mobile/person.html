@@ -1,0 +1,44 @@
+{% extends "mobile/base.html" %}
+{% import "macros.html" as m %}
+{% block title %}{{ person.title }} · AML{% endblock %}
+{% block content %}
+<article class="m-work">
+
+  <header class="m-top">
+    <div class="m-portrait">{{ m.picture(base, person.picture, person.title, 'person') }}</div>
+    <div>
+      <p class="eyebrow">{{ person.kind }}</p>
+      <h1 class="m-title">{{ person.title }}</h1>
+      {% if person.native_title or person.latinized_title %}
+      <p class="alt m-alt">
+        {%- if person.native_title %}<span lang="{{ person.native_lang }}">{{ person.native_title }}</span>{% endif -%}
+        {%- if person.latinized_title %}<span>{{ person.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if person.description %}
+  <p class="description m-description" lang="{{ person.description.lang }}">{{ person.description.body }}</p>
+  {% endif %}
+
+  <dl class="m-info m-info-first">
+    {% if person.titles %}<div class="wide"><dt>Names</dt><dd>{{ m.title_list(person.titles, flag) }}</dd></div>{% endif %}
+  </dl>
+
+  {% if person.characters %}
+  <section class="m-block">
+    <h2 class="section-title">Characters</h2>
+    {{ m.character_cards(base, person.characters, 'voice-grid m-voice-grid') }}
+  </section>
+  {% endif %}
+
+  {% if person.staff_credits %}
+  <section class="m-block">
+    <h2 class="section-title">Staff Credits</h2>
+    {{ m.work_cards(base, person.staff_credits, 'm-characters') }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}

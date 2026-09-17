@@ -17,6 +17,93 @@
 {%- endif -%}
 {%- endmacro %}
 
+{#- Who played a character: a language flag (or the performance type) and the person. -#}
+{% macro cast(base, flag, people) -%}
+<ul class="cast">
+  {%- for x in people %}
+  <li>{% if x.lang %}{{ lang_flag(flag(x.lang), x.lang, x.type) }}{% else %}<span class="cast-type">{{ x.type }}</span>{% endif %}<a href="{{ base }}{{ x.address }}">{{ x.title }}</a></li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- The works a performance card lists: the work and its year, one per line. Voice is the
+    normal case (the sections say Voice Actors / Characters), so only other kinds get a tag. -#}
+{% macro performance_works(base, works) -%}
+<ul class="voice-works">
+  {%- for w in works %}
+  <li>{% if w.type_code != 'voice' %}<span class="voice-type">{{ w.type }}</span>{% endif %}<span class="voice-work"><a href="{{ base }}{{ w.address }}">{{ w.title }}</a>{% if w.year %}<span class="year">{{ w.year }}</span>{% endif %}</span></li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- Everyone who played a character: a big picture with their language flag in its corner,
+    the name with the native name beside it, and the works they played the character in. -#}
+{% macro cast_cards(base, flag, cast, list_class='voice-grid') -%}
+<ul class="{{ list_class }}">
+  {%- for p in cast %}
+  <li class="voice">
+    <div class="voice-frame">
+      {{- picture(base, p.picture, p.title, 'person') -}}
+      {%- if p.lang %}{{ lang_flag(flag(p.lang), p.lang, p.types | join(' · '), big=true) }}{% endif -%}
+    </div>
+    <div class="voice-body">
+      <div class="voice-head">
+        <a class="voice-name" href="{{ base }}{{ p.address }}">{{ p.title }}</a>
+        {%- if p.native_title %}<span class="voice-native" lang="{{ p.native_lang }}">{{ p.native_title }}</span>{% endif -%}
+      </div>
+      {{ performance_works(base, p.works) }}
+    </div>
+  </li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- Every character a person played: a big portrait, the name with the native name beside it,
+    and the works they played the character in. -#}
+{% macro character_cards(base, characters, list_class='voice-grid') -%}
+<ul class="{{ list_class }}">
+  {%- for c in characters %}
+  <li class="voice">
+    <div class="voice-frame">{{ picture(base, c.picture, c.title, 'portrait') }}</div>
+    <div class="voice-body">
+      <div class="voice-head">
+        <a class="voice-name" href="{{ base }}{{ c.address }}">{{ c.title }}</a>
+        {%- if c.native_title %}<span class="voice-native" lang="{{ c.native_lang }}">{{ c.native_title }}</span>{% endif -%}
+      </div>
+      {{ performance_works(base, c.works) }}
+    </div>
+  </li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- Works as cards with their cover frame, kind and year, and roles as tags: a character's
+    appearances, a person's staff credits. -#}
+{% macro work_cards(base, works, list_class='character-grid') -%}
+<ul class="{{ list_class }}">
+  {%- for w in works %}
+  <li class="character appearance">
+    {{ picture(base, w.picture, w.title, 'portrait') }}
+    <div class="character-body">
+      <a class="character-name" href="{{ base }}{{ w.address }}">{{ w.title }}</a>
+      <span class="appearance-meta">{{ w.kind }}{% if w.year %} · {{ w.year }}{% endif %}</span>
+      {{ role_chips(w.roles, w.note) }}
+    </div>
+  </li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- An appearance's roles and its note (Boss, Optional), side by side in the same tag style. -#}
+{% macro role_chips(roles, note) -%}
+{%- if roles or note -%}
+<span class="role-chips">
+  {%- if roles %}<span class="role-chip">{{ roles | join(' · ') }}</span>{% endif -%}
+  {%- if note %}<span class="role-chip">{{ note }}</span>{% endif -%}
+</span>
+{%- endif -%}
+{%- endmacro %}
+
 {#- A franchise with the franchises above it: Shin Megami Tensei › Persona -#}
 {% macro crumbs(base, f) -%}
 <span class="crumbs">
@@ -30,9 +117,21 @@
 <ul class="title-list">
   {%- for t in titles %}
   <li class="title-row">{{ lang_flag(flag(t.lang), t.lang, t.type ~ ' title', big=true) }}<span class="title-body"><span class="title-text" lang="{{ t.lang }}">{{ t.text }}</span>
-    {%- if t.romanization %}<span class="title-romaji" lang="{{ t.romanization_lang }}">{{ t.romanization }}</span>{% endif -%}
+    {%- if t.latinized %}<span class="title-latinized" lang="{{ t.latinized_lang }}">{{ t.latinized }}</span>{% endif -%}
     {%- if t.type_code != 'full' %}<span class="title-note">{{ t.type }}</span>{% endif -%}
   </span></li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- Age rating icons, each shown whole at one height (their ratios differ), linking to the
+    rating's page. A rating without an icon shows its name in a frame of the same height. -#}
+{% macro age_ratings(base, ratings) -%}
+<ul class="age-ratings">
+  {%- for a in ratings %}
+  <li><a class="age-rating" href="{{ base }}{{ a.address }}" title="{{ a.label }}">
+    {%- if a.icon %}<img class="age-icon" src="{{ base }}{{ a.icon }}" alt="{{ a.label }}">{% else %}<span class="age-text">{{ a.label }}</span>{% endif -%}
+  </a></li>
   {%- endfor %}
 </ul>
 {%- endmacro %}
@@ -76,7 +175,7 @@
 {% endif %}
 {%- endmacro %}
 
-{#- A picture, or an initials tile of the same size. shape: portrait, round, logo.
+{#- A picture, or an initials tile of the same size. shape: portrait, person, round, logo.
     The name is always printed next to it, so the image itself has empty alt text. -#}
 {% macro picture(base, path, name, shape) -%}
 {%- if path -%}

@@ -70,7 +70,7 @@ def test_title_block(page):
     assert page["title"] == "Persona 3 Reload"
     assert page["native_title"] == "ペルソナ3 リロード"
     assert page["native_lang"] == "ja"
-    assert page["romanized_title"] == "Perusona Surī Rirōdo"
+    assert page["latinized_title"] == "Perusona Surī Rirōdo"
 
 
 def test_kind_status_and_dates(page):
@@ -207,6 +207,38 @@ def test_platforms_from_releases_in_family_order(page):
     ]
 
 
+def test_age_ratings_with_icons_origin_country_system_first(conn, page):
+    icons = {
+        r["address"]: r["path"]
+        for r in conn.execute(
+            """
+            SELECT core.address(entity_id) AS address, '/media/' || sha256 || '.' || format AS path
+              FROM core.image WHERE image_type = 'icon' AND is_primary
+            """
+        ).fetchall()
+    }
+    assert [(a["label"], a["system"], a["rating"], a["address"], a["min_age"]) for a in page["age_ratings"]] == [
+        ("CERO C", "CERO", "C", "/29/03/19/03", 15),      # Japan: the game's country of origin
+        ("PEGI 16", "PEGI", "16", "/29/01/19/04", 16),
+        ("ESRB Mature 17+", "ESRB", "Mature 17+", "/29/02/19/05", 17),
+    ]
+    assert [a["icon"] for a in page["age_ratings"]] == [icons["/29/03/19/03"], icons["/29/01/19/04"], icons["/29/02/19/05"]]
+    assert all(a["icon"].endswith(".svg") for a in page["age_ratings"])
+
+
+def test_age_ratings_skip_unpublished_and_show_text_without_an_icon(conn):
+    p3 = resolve(conn, "/04/0001/001")["entity_id"]
+    assert load_work(conn, p3, "en")["age_ratings"] == []
+    with conn.transaction(force_rollback=True):
+        cero_b = resolve(conn, "/29/03/19/02")["entity_id"]
+        pegi_12 = resolve(conn, "/29/01/19/03")["entity_id"]
+        conn.execute("INSERT INTO core.entity_age_rating (entity_id, entity_kind, rating_id) VALUES (%s, 'game', %s), (%s, 'game', %s)",
+                     (p3, cero_b, p3, pegi_12))
+        conn.execute("DELETE FROM core.image WHERE entity_id = %s", (cero_b,))
+        conn.execute("UPDATE core.entity SET published_at = NULL WHERE id = %s", (pegi_12,))
+        assert [(a["label"], a["icon"]) for a in load_work(conn, p3, "en")["age_ratings"]] == [("CERO B", None)]
+
+
 def test_aey_placeholders(page):
     aey = page["aey"]
     assert aey["score"] == {"general": 32, "shown": "+6.4", "half_stars": 6}
@@ -228,8 +260,8 @@ def test_external_ratings_and_links(page):
     ]
 
 
-def test_all_titles_with_romaji_under_the_japanese_title(page):
-    assert [(t["lang"], t["text"], t["native"], t["romanization"], t["romanization_lang"], t["type"]) for t in page["titles"]] == [
+def test_all_titles_with_the_latinized_title_under_the_japanese_title(page):
+    assert [(t["lang"], t["text"], t["native"], t["latinized"], t["latinized_lang"], t["type"]) for t in page["titles"]] == [
         ("ja", "ペルソナ3 リロード", True, "Perusona Surī Rirōdo", "ja-Latn", "Full"),
         ("en", "Persona 3 Reload", False, None, None, "Full"),
     ]

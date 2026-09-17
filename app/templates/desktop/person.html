@@ -1,0 +1,47 @@
+{% extends "desktop/base.html" %}
+{% import "macros.html" as m %}
+{% block title %}{{ person.title }} · Aeyian Media List{% endblock %}
+{% block content %}
+<article class="person-page">
+
+  <div class="entry">
+    <div class="cover">
+      {{ m.picture(base, person.picture, person.title, 'person') }}
+    </div>
+
+    <div class="entry-main">
+      <p class="eyebrow">{{ person.kind }}</p>
+      <h1 class="title">{{ person.title }}</h1>
+      {% if person.native_title or person.latinized_title %}
+      <p class="alt">
+        {%- if person.native_title %}<span lang="{{ person.native_lang }}">{{ person.native_title }}</span>{% endif -%}
+        {%- if person.native_title and person.latinized_title %} · {% endif -%}
+        {%- if person.latinized_title %}<span>{{ person.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+      {% if person.description %}
+      <p class="description" lang="{{ person.description.lang }}">{{ person.description.body }}</p>
+      {% endif %}
+    </div>
+
+    <dl class="info">
+      {% if person.titles %}<div><dt>Names</dt><dd>{{ m.title_list(person.titles, flag) }}</dd></div>{% endif %}
+    </dl>
+  </div>
+
+  {% if person.characters %}
+  <section class="people-section" aria-labelledby="characters-title">
+    <h2 class="section-title" id="characters-title">Characters</h2>
+    {{ m.character_cards(base, person.characters) }}
+  </section>
+  {% endif %}
+
+  {% if person.staff_credits %}
+  <section class="people-section" aria-labelledby="staff-credits-title">
+    <h2 class="section-title" id="staff-credits-title">Staff Credits</h2>
+    {{ m.work_cards(base, person.staff_credits) }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}
