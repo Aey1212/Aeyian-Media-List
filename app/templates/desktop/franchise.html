@@ -1,0 +1,68 @@
+{% extends "desktop/base.html" %}
+{% import "macros.html" as m %}
+{% block title %}{{ franchise.title }} · Aeyian Media List{% endblock %}
+{% block content %}
+<article class="franchise-page">
+
+  <div class="entry">
+    <div class="cover">
+      {{ m.picture(base, franchise.picture, franchise.title, 'logo', lazy=false) }}
+    </div>
+
+    <div class="entry-main">
+      <p class="eyebrow">{{ franchise.kind }}</p>
+      <h1 class="title">{{ franchise.title }}</h1>
+      {% if franchise.native_title or franchise.latinized_title %}
+      <p class="alt">
+        {%- if franchise.native_title %}<span lang="{{ franchise.native_lang }}">{{ franchise.native_title }}</span>{% endif -%}
+        {%- if franchise.native_title and franchise.latinized_title %} · {% endif -%}
+        {%- if franchise.latinized_title %}<span>{{ franchise.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+      {% if franchise.description %}
+      <p class="description" lang="{{ franchise.description.lang }}">{{ franchise.description.body }}</p>
+      {% endif %}
+
+      {% if franchise.parents or franchise.related %}
+      <div class="facts">
+        {% if franchise.parents %}
+        <div class="fact">
+          <span class="fact-label">Lineage</span>
+          {{ m.crumbs(base, franchise, link_current=false) }}
+        </div>
+        {% endif %}
+        {% if franchise.related %}
+        <div class="fact">
+          <span class="fact-label">Related</span>
+          <ul class="fact-list">
+            {% for r in franchise.related %}
+            <li class="rel-row"><span class="rel-tag">{{ r.label }}</span><a href="{{ base }}{{ r.address }}">{{ r.title }}</a>{% if r.note %}<span class="note">{{ r.note }}</span>{% endif %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+
+    <dl class="info">
+      {% if franchise.titles %}<div><dt>Names</dt><dd>{{ m.title_list(franchise.titles, flag) }}</dd></div>{% endif %}
+    </dl>
+  </div>
+
+  {% if franchise.works %}
+  <section class="people-section" aria-labelledby="works-title">
+    <h2 class="section-title" id="works-title">Works</h2>
+    {{ m.work_cards(base, franchise.works) }}
+  </section>
+  {% endif %}
+
+  {% if franchise.characters %}
+  <section class="people-section" aria-labelledby="characters-title">
+    <h2 class="section-title" id="characters-title">Characters</h2>
+    {{ m.character_tiles(base, franchise.characters) }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}

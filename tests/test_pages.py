@@ -76,7 +76,7 @@ def test_garbage_is_404(client):
 
 
 def test_kinds_without_a_page_yet_are_404(client):
-    assert client.get("/AML/21/0001").status_code == 404          # franchise
+    assert client.get("/AML/27/001").status_code == 404           # genre
     assert client.get("/AML/04/0001/002/14/001").status_code == 404   # DLC
 
 

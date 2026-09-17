@@ -104,12 +104,28 @@
 {%- endif -%}
 {%- endmacro %}
 
-{#- A franchise with the franchises above it: Shin Megami Tensei › Persona -#}
-{% macro crumbs(base, f) -%}
+{#- A franchise with the franchises above it: Shin Megami Tensei › Persona.
+    On the franchise's own page the last crumb is not a link. -#}
+{% macro crumbs(base, f, link_current=true) -%}
 <span class="crumbs">
   {%- for p in f.parents %}<a class="crumb-parent" href="{{ base }}{{ p.address }}">{{ p.title }}</a><span class="crumb-sep" aria-hidden="true">›</span>{% endfor -%}
-  <a class="crumb-current" href="{{ base }}{{ f.address }}">{{ f.title }}</a>
+  {%- if link_current %}<a class="crumb-current" href="{{ base }}{{ f.address }}">{{ f.title }}</a>{% else %}<span class="crumb-current">{{ f.title }}</span>{% endif -%}
 </span>
+{%- endmacro %}
+
+{#- Characters as portrait cards with their name and native name (a franchise's characters). -#}
+{% macro character_tiles(base, characters, list_class='character-grid') -%}
+<ul class="{{ list_class }}">
+  {%- for c in characters %}
+  <li class="character">
+    {{ picture(base, c.picture, c.title, 'portrait') }}
+    <div class="character-body">
+      <a class="character-name" href="{{ base }}{{ c.address }}">{{ c.title }}</a>
+      {% if c.native_title %}<span class="character-native" lang="{{ c.native_lang }}">{{ c.native_title }}</span>{% endif %}
+    </div>
+  </li>
+  {%- endfor %}
+</ul>
 {%- endmacro %}
 
 {#- Every title of a work, one equal-width row each, with a big flag. -#}

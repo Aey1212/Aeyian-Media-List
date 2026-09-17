@@ -92,7 +92,7 @@ def test_franchise_with_the_franchise_above_it(page):
 
 
 def test_franchise_lineage_skips_crossovers_and_stops_on_loops(conn):
-    from app.data.work import _franchise_lineage
+    from app.data.common import franchise_lineage
 
     persona = resolve(conn, "/21/0001")["entity_id"]
     smt = resolve(conn, "/21/0002")["entity_id"]
@@ -101,10 +101,10 @@ def test_franchise_lineage_skips_crossovers_and_stops_on_loops(conn):
         conn.execute("UPDATE core.entity SET published_at = now() WHERE id = %s", (top,))
         conn.execute("INSERT INTO core.title (entity_id, lang, title_type, text) VALUES (%s, 'en', 'full', 'Megami Tensei')", (top,))
         conn.execute("INSERT INTO core.franchise_relation (source_id, relation_type, target_id) VALUES (%s, 'spin_off_of', %s)", (smt, top))
-        assert [p["id"] for p in _franchise_lineage(conn, persona)] == [top, smt]
+        assert [p["id"] for p in franchise_lineage(conn, persona)] == [top, smt]
         # a loop back down to Persona must not repeat forever
         conn.execute("INSERT INTO core.franchise_relation (source_id, relation_type, target_id) VALUES (%s, 'sequel_of', %s)", (top, persona))
-        assert [p["id"] for p in _franchise_lineage(conn, persona)] == [top, smt]
+        assert [p["id"] for p in franchise_lineage(conn, persona)] == [top, smt]
 
 
 def test_relationship_is_labelled_from_this_page(page):

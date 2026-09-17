@@ -1,0 +1,58 @@
+{% extends "mobile/base.html" %}
+{% import "macros.html" as m %}
+{% block title %}{{ franchise.title }} · AML{% endblock %}
+{% block content %}
+<article class="m-work">
+
+  <header class="m-top">
+    <div class="m-portrait">{{ m.picture(base, franchise.picture, franchise.title, 'logo', lazy=false) }}</div>
+    <div>
+      <p class="eyebrow">{{ franchise.kind }}</p>
+      <h1 class="m-title">{{ franchise.title }}</h1>
+      {% if franchise.native_title or franchise.latinized_title %}
+      <p class="alt m-alt">
+        {%- if franchise.native_title %}<span lang="{{ franchise.native_lang }}">{{ franchise.native_title }}</span>{% endif -%}
+        {%- if franchise.latinized_title %}<span>{{ franchise.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if franchise.description %}
+  <p class="description m-description" lang="{{ franchise.description.lang }}">{{ franchise.description.body }}</p>
+  {% endif %}
+
+  <dl class="m-info m-info-first">
+    {% if franchise.titles %}<div class="wide"><dt>Names</dt><dd>{{ m.title_list(franchise.titles, flag) }}</dd></div>{% endif %}
+  </dl>
+
+  {% if franchise.parents or franchise.related %}
+  <section class="m-block">
+    <h2 class="section-title">Connections</h2>
+    <ul class="m-rel-list">
+      {% if franchise.parents %}
+      <li class="rel-row"><span class="rel-tag">Lineage</span>{{ m.crumbs(base, franchise, link_current=false) }}</li>
+      {% endif %}
+      {% for r in franchise.related %}
+      <li class="rel-row"><span class="rel-tag">{{ r.label }}</span><a href="{{ base }}{{ r.address }}">{{ r.title }}</a></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if franchise.works %}
+  <section class="m-block">
+    <h2 class="section-title">Works</h2>
+    {{ m.work_cards(base, franchise.works, 'm-characters') }}
+  </section>
+  {% endif %}
+
+  {% if franchise.characters %}
+  <section class="m-block">
+    <h2 class="section-title">Characters</h2>
+    {{ m.character_tiles(base, franchise.characters, 'm-characters') }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}

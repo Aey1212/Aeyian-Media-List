@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 import psycopg
 
-from app.data.common import aey_data, all_titles, display_titles, native_titles, pictures, title_block
+from app.data.common import aey_data, all_titles, display_titles, franchise_lineage, native_titles, pictures, title_block
 from app.labels import format_number, format_partial_date, pick_label
 
 
@@ -64,7 +64,7 @@ def _franchises(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dic
     ).fetchall()
     result = []
     for row in rows:
-        parents = _franchise_lineage(conn, row["franchise_id"])
+        parents = franchise_lineage(conn, row["franchise_id"])
         titles = display_titles(conn, [row["franchise_id"], *(p["id"] for p in parents)], lang)
         result.append({
             "title": titles.get(row["franchise_id"]),
@@ -74,36 +74,6 @@ def _franchises(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dic
             "parents": [{"title": titles.get(p["id"]), "address": p["address"]} for p in parents],
         })
     return result
-
-
-def _franchise_lineage(conn: psycopg.Connection, franchise_id: int, depth: int = 5) -> list[dict[str, Any]]:
-    """Franchises this one derives from (Persona spin_off_of Shin Megami Tensei), outermost first.
-
-    Follows one-directional relationships where this franchise is the source, one parent per
-    level, up to `depth` levels; two-sided ones (crossovers) are not hierarchy and are skipped.
-    """
-    chain: list[dict[str, Any]] = []
-    seen = {franchise_id}
-    current = franchise_id
-    for _ in range(depth):
-        parent = conn.execute(
-            """
-            SELECT r.target_id AS id, core.address(r.target_id) AS address
-              FROM core.franchise_relation r
-              JOIN core.relation_type rt ON rt.code = r.relation_type
-              JOIN core.entity o ON o.id = r.target_id AND o.published_at IS NOT NULL
-             WHERE r.source_id = %(id)s AND NOT rt.two_sided
-             ORDER BY rt.sort_order, r.id
-             LIMIT 1
-            """,
-            {"id": current},
-        ).fetchone()
-        if parent is None or parent["id"] in seen:
-            break
-        chain.insert(0, parent)
-        seen.add(parent["id"])
-        current = parent["id"]
-    return chain
 
 
 def _children(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
