@@ -1,0 +1,165 @@
+{% extends "desktop/base.html" %}
+{% import "macros.html" as m %}
+{% block title %}{{ work.title }} · Aeyian Media List{% endblock %}
+{% block content %}
+{% set aey = work.aey %}
+<article class="work">
+
+  <div class="entry">
+    <div class="cover">
+      <div class="cover-emblem" aria-hidden="true"></div>
+      <span class="cover-note">No cover yet</span>
+    </div>
+
+    <div class="entry-main">
+      <p class="eyebrow">{{ work.kind }}{% if work.start_date %} · {{ work.start_date }}{% endif %}{% if work.end_date %} – {{ work.end_date }}{% endif %}</p>
+      <h1 class="title">{{ work.title }}</h1>
+      {% if work.native_title or work.romanized_title %}
+      <p class="alt">
+        {%- if work.native_title %}<span lang="{{ work.native_lang }}">{{ work.native_title }}</span>{% endif -%}
+        {%- if work.native_title and work.romanized_title %} · {% endif -%}
+        {%- if work.romanized_title %}<span>{{ work.romanized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+
+      <div class="facts">
+        {% if work.relations %}
+        <div class="fact">
+          <span class="fact-label">Related</span>
+          <ul class="fact-list">
+            {% for r in work.relations %}
+            <li class="rel-row"><span class="rel-tag">{{ r.label }}</span><a href="{{ base }}{{ r.address }}">{{ r.title }}</a>{% if r.year %}<span class="year">{{ r.year }}</span>{% endif %}{% if r.note %}<span class="note">{{ r.note }}</span>{% endif %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% for f in work.franchises %}
+        <div class="fact">
+          <span class="fact-label">Franchise</span>
+          {{ m.crumbs(base, f) }}
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if work.genres or work.tags %}
+      <ul class="chips" aria-label="Genres and tags">
+        {% for g in work.genres %}
+        <li class="chip">{% for p in g.parents %}<span class="parent">{{ p }} › </span>{% endfor %}<a href="{{ base }}{{ g.address }}">{{ g.title }}</a></li>
+        {% endfor %}
+        {% for t in work.tags %}
+        <li class="chip chip-tag"><a href="{{ base }}{{ t.address }}">{{ t.title }}</a></li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+
+    <dl class="info">
+      {% if work.titles %}<div><dt>Titles</dt><dd>{{ m.title_list(work.titles, flag) }}</dd></div>{% endif %}
+      {% if work.status %}<div><dt>Status</dt><dd>{{ work.status }}</dd></div>{% endif %}
+      {% if work.platforms %}
+      <div><dt>Platforms</dt><dd>{% for p in work.platforms %}<a href="{{ base }}{{ p.address }}">{{ p.title }}</a>{% if not loop.last %}<span class="sep"> · </span>{% endif %}{% endfor %}</dd></div>
+      {% endif %}
+      {% if work.source_type %}<div><dt>Source</dt><dd>{{ work.source_type }}</dd></div>{% endif %}
+    </dl>
+  </div>
+
+  <section class="score-band" aria-label="Aey">
+    <div>
+      <span class="score-label">General Score</span>
+      {% if aey.score %}
+      <span class="score-num">{{ aey.score.shown }}</span>
+      {% else %}
+      <span class="score-num no-score">—</span>
+      <span class="score-raw">Not rated yet</span>
+      {% endif %}
+      {% if aey.progress %}
+      <span class="score-progress">
+        {{- aey.progress.status or '' -}}
+        {%- if aey.progress.value %} · {{ aey.progress.unit }} {{ aey.progress.value }}{% endif -%}
+        {%- if aey.progress.hours %} · {{ aey.progress.hours }} h{% endif -%}
+        {%- if aey.progress.times_completed %} · {{ aey.progress.times_completed }}× completed{% endif -%}
+      </span>
+      {% endif %}
+    </div>
+    {{ m.scale(aey.score.half_stars if aey.score else 0, aey.score.shown if aey.score else 'not rated') }}
+  </section>
+
+  {% if aey.subratings or aey.take %}
+  <div class="lower">
+    <section>
+      {% if aey.subratings %}
+      <h2 class="section-title">Subratings</h2>
+      <div class="subs">
+        {% for s in aey.subratings %}
+        <div class="sub"><span>{{ s.label }}</span>{{ m.scale(s.half_stars, s.shown, small=true) }}<span class="sub-num">{{ s.shown }}</span></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+    {% if aey.take %}
+    <section class="take">
+      <h2 class="section-title">Aey's Take</h2>
+      <p class="take-body" lang="{{ aey.take.lang }}">{{ aey.take.body }}</p>
+    </section>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if work.characters %}
+  <section class="people-section" aria-labelledby="characters-title">
+    <h2 class="section-title" id="characters-title">Characters</h2>
+    <ul class="character-grid">
+      {% for c in work.characters %}
+      <li class="character">
+        {{ m.picture(base, c.picture, c.title, 'portrait') }}
+        <div class="character-body">
+          <a class="character-name" href="{{ base }}{{ c.address }}">{{ c.title }}</a>
+          {% if c.native_title %}<span class="character-native" lang="{{ c.native_lang }}">{{ c.native_title }}</span>{% endif %}
+          {% if c.roles %}<span class="role-chip">{{ c.roles | join(' · ') }}</span>{% endif %}
+          {% if c.cast %}
+          <ul class="cast">
+            {% for x in c.cast %}
+            <li>{% if x.lang %}{{ m.lang_flag(flag(x.lang), x.lang, x.type) }}{% else %}<span class="cast-type">{{ x.type }}</span>{% endif %}<a href="{{ base }}{{ x.address }}">{{ x.title }}</a></li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if work.companies or work.staff %}
+  <div class="credits-row">
+    {% if work.companies %}
+    <section>
+      <h2 class="section-title">Companies</h2>
+      <ul class="credit-grid">
+        {% for co in work.companies %}
+        <li class="credit">{{ m.picture(base, co.picture, co.title, 'logo') }}<div><a href="{{ base }}{{ co.address }}">{{ co.title }}</a><span class="credit-roles">{{ co.roles | join(' · ') }}</span></div></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    {% if work.staff %}
+    <section>
+      <h2 class="section-title">Staff</h2>
+      <ul class="credit-grid">
+        {% for s in work.staff %}
+        <li class="credit">{{ m.picture(base, s.picture, s.title, 'round') }}<div><a href="{{ base }}{{ s.address }}">{{ s.title }}</a><span class="credit-roles">{{ s.roles | join(' · ') }}</span></div></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if work.children or work.external.ratings or work.external.links %}
+  <div class="more">
+    {{ m.more_sections(base, work) }}
+  </div>
+  {% endif %}
+
+</article>
+{% endblock %}

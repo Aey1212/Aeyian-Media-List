@@ -697,6 +697,55 @@ not list people or companies; adding them is a row in `core.attach_kind`.
 
 ---
 
+## Image ratios (site standard, 2026/09/17)
+
+Pages crop every picture to its frame (`object-fit: cover`), so pictures made at these ratios show
+whole. Tall pictures use 3:4, the frame size Aey approved on the first page. Sizes are the smallest
+that stay sharp on a high-density screen.
+
+| Image type (`core.image_type`) | Ratio | Smallest size | Shape on the page |
+|---|---|---|---|
+| cover | 3:4 | 600 × 800 | rounded rectangle |
+| cover **of a soundtrack** | 1:1 | 600 × 600 | rounded square (album art) |
+| poster | 3:4 | 600 × 800 | rounded rectangle |
+| season_poster | 3:4 | 600 × 800 | rounded rectangle |
+| volume_cover | 3:4 | 600 × 800 | rounded rectangle |
+| box_art | 3:4 | 600 × 800 | rounded rectangle |
+| portrait (characters) | 3:4 | 480 × 640 | rounded rectangle |
+| portrait (people) | 3:4 source | 480 × 640 | shown as a circle, centre crop |
+| logo | any ratio, transparent PNG or SVG | 512 on the long side | fitted whole inside a square tile |
+| icon | 1:1 | 256 × 256 | small rounded square |
+| banner | 4:1 | 1600 × 400 | full-width strip |
+| backdrop | 16:9 | 1920 × 1080 | background |
+| thumbnail | 16:9 | 640 × 360 | rounded rectangle |
+| language flag (`app/static/flags/`) | 1:1 | 256 × 256 (pack is 800 × 800) | rounded square |
+
+Which pictures each kind uses:
+
+| Kind | Main picture | Other pictures |
+|---|---|---|
+| Anime, Manga, Light Novel, Game | cover 3:4 | banner 4:1, backdrop 16:9, logo |
+| Series, Movie | poster 3:4 | backdrop 16:9, banner 4:1, logo |
+| Season | season_poster 3:4 | — |
+| Episode | thumbnail 16:9 | — |
+| Volume | volume_cover 3:4 | — |
+| DLC | cover 3:4 | thumbnail 16:9 |
+| Release | box_art 3:4 | — |
+| Cut / Edition | poster 3:4 | — |
+| Soundtrack | cover 1:1 | — |
+| Franchise | logo | banner 4:1 |
+| Character | portrait 3:4 | — |
+| Person | portrait 3:4 (circle) | — |
+| Company, Platform Family, Platform, Age Rating System | logo | — |
+| Age Rating | icon 1:1 | — |
+| Genre, Tag | none | — |
+
+Frames on the page today: cover 3:4, character portrait 3:4, person portrait circle, company logo
+tile, language flags. Banner, backdrop, thumbnail, icon and the soundtrack's square cover get their
+frames when those pages are built.
+
+---
+
 ## Decided, not built yet
 
 - **Outlet** (magazines, web platforms such as Weekly Shōnen Jump, Shōnen Jump+, Narō): a world kind

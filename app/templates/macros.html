@@ -1,0 +1,111 @@
+{#- Shared pieces for desktop and mobile pages. -#}
+
+{#- Up to two initials, for the tile shown when there is no picture. -#}
+{% macro initials(name) -%}
+{{ (name or '?').split()[:2] | map('first') | join | upper }}
+{%- endmacro %}
+
+{#- A square language flag from the flag pack, or a square with the language code until the
+    pack has that flag. -#}
+{% macro lang_flag(url, lang, kind, big=false) -%}
+{%- set code = (lang or '?').split('-')[0] | upper -%}
+{%- set size = ' lang-flag-big' if big else '' -%}
+{%- if url -%}
+<img class="lang-flag{{ size }}" src="{{ url }}" alt="{{ code }}" title="{{ code }} · {{ kind }}">
+{%- else -%}
+<span class="lang-flag{{ size }} lang-flag-code" title="{{ code }} · {{ kind }}">{{ code }}</span>
+{%- endif -%}
+{%- endmacro %}
+
+{#- A franchise with the franchises above it: Shin Megami Tensei › Persona -#}
+{% macro crumbs(base, f) -%}
+<span class="crumbs">
+  {%- for p in f.parents %}<a class="crumb-parent" href="{{ base }}{{ p.address }}">{{ p.title }}</a><span class="crumb-sep" aria-hidden="true">›</span>{% endfor -%}
+  <a class="crumb-current" href="{{ base }}{{ f.address }}">{{ f.title }}</a>
+</span>
+{%- endmacro %}
+
+{#- Every title of a work, one equal-width row each, with a big flag. -#}
+{% macro title_list(titles, flag) -%}
+<ul class="title-list">
+  {%- for t in titles %}
+  <li class="title-row">{{ lang_flag(flag(t.lang), t.lang, t.type ~ ' title', big=true) }}<span class="title-body"><span class="title-text" lang="{{ t.lang }}">{{ t.text }}</span>
+    {%- if t.romanization %}<span class="title-romaji" lang="{{ t.romanization_lang }}">{{ t.romanization }}</span>{% endif -%}
+    {%- if t.type_code != 'full' %}<span class="title-note">{{ t.type }}</span>{% endif -%}
+  </span></li>
+  {%- endfor %}
+</ul>
+{%- endmacro %}
+
+{#- DLC / seasons / volumes ..., outside ratings and links, each item in its own frame. -#}
+{% macro more_sections(base, work, heading_class='section-title') -%}
+{% for kind, items in work.children | groupby('kind') %}
+<section class="more-section">
+  <h2 class="{{ heading_class }}">{{ kind }}</h2>
+  <ul class="tile-list">
+    {% for c in items %}
+    <li><a class="tile" href="{{ base }}{{ c.address }}"><span class="tile-title">{{ c.title }}</span>{% if c.date %}<span class="tile-meta">{{ c.date }}</span>{% endif %}</a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endfor %}
+{% if work.external.ratings %}
+<section class="more-section">
+  <h2 class="{{ heading_class }}">Elsewhere</h2>
+  <ul class="tile-list">
+    {% for r in work.external.ratings %}
+    <li>
+      {%- if r.url %}<a class="tile tile-rating" href="{{ r.url }}" rel="noopener">{% else %}<div class="tile tile-rating">{% endif -%}
+      <span class="tile-name"><span class="tile-title">{{ r.source }}</span><span class="tile-meta">{{ r.metric }}</span></span>
+      <span class="tile-value">{{ r.number }}{% if r.suffix %}<small>{{ r.suffix }}</small>{% endif %}</span>
+      {%- if r.url %}</a>{% else %}</div>{% endif -%}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% if work.external.links %}
+<section class="more-section">
+  <h2 class="{{ heading_class }}">Links</h2>
+  <ul class="tile-list">
+    {% for l in work.external.links %}
+    <li><a class="tile tile-link" href="{{ l.url }}" rel="noopener"><span class="tile-title">{{ l.label }}</span><span class="tile-meta">{{ l.host }}</span><span class="tile-arrow" aria-hidden="true">↗</span></a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{%- endmacro %}
+
+{#- A picture, or an initials tile of the same size. shape: portrait, round, logo.
+    The name is always printed next to it, so the image itself has empty alt text. -#}
+{% macro picture(base, path, name, shape) -%}
+{%- if path -%}
+<img class="pic pic-{{ shape }}" src="{{ base }}{{ path }}" alt="" loading="lazy">
+{%- else -%}
+<span class="pic pic-{{ shape }} pic-empty" aria-hidden="true">{{ initials(name) }}</span>
+{%- endif -%}
+{%- endmacro %}
+
+{#- One star. halves: 0 empty, 1 half, 2 full. Negative stars fill from the side nearer zero. -#}
+{% macro star(halves, negative) -%}
+{%- set path = "M12 2.6l2.84 5.95 6.54.86-4.8 4.53 1.22 6.48L12 17.27l-5.8 3.15 1.22-6.48-4.8-4.53 6.54-.86z" -%}
+<span class="st{{ ' neg' if negative else '' }}"><svg viewBox="0 0 24 24" class="st-e" aria-hidden="true"><path d="{{ path }}"/></svg>
+{%- if halves > 0 -%}
+<svg viewBox="0 0 24 24" class="st-f{{ (' h-r' if negative else ' h-l') if halves == 1 else '' }}" aria-hidden="true"><path d="{{ path }}"/></svg>
+{%- endif -%}
+</span>
+{%- endmacro %}
+
+{#- The score along the flag arm: five negative stars, the disc at zero, five positive stars.
+    half_stars runs -10..+10 (every 5 stored points is half a star). -#}
+{% macro scale(half_stars, shown, small=false) -%}
+<span class="scale{{ ' scale-sm' if small else '' }}" role="img" aria-label="{{ shown }} on a scale from &minus;10 to +10">
+{%- for k in [5, 4, 3, 2, 1] -%}
+{{ star([[(0 - half_stars) - 2 * (k - 1), 0] | max, 2] | min if half_stars < 0 else 0, true) }}
+{%- endfor -%}
+<span class="zero" aria-hidden="true"></span>
+{%- for k in [1, 2, 3, 4, 5] -%}
+{{ star([[half_stars - 2 * (k - 1), 0] | max, 2] | min if half_stars > 0 else 0, false) }}
+{%- endfor -%}
+</span>
+{%- endmacro %}

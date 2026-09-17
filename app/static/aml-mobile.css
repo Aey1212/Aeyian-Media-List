@@ -1,0 +1,84 @@
+/* Aeyian Media List — mobile pages (m.aeyempire.com/AML).
+   Loaded after aml.css: same colours, fonts, star scale, chips and Take box;
+   this file only lays them out in one column. */
+
+body.m { font-size: 15px; }
+
+.m-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  min-height: 56px; padding-inline: 16px; border-bottom: 1px solid var(--line);
+}
+/* the menu opens without JavaScript */
+.m-menu { position: relative; }
+.m-menu summary {
+  list-style: none; cursor: pointer; padding: 10px 0;
+  font: 400 0.72rem/1 var(--font-display); letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+}
+.m-menu summary::-webkit-details-marker { display: none; }
+.m-menu[open] summary { color: var(--white); }
+.m-menu nav {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 10; min-width: 190px;
+  display: flex; flex-direction: column; padding: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.m-menu nav a {
+  border: 0; padding: 11px 12px; border-radius: 8px; color: var(--text);
+  font: 400 0.8rem/1 var(--font-display); letter-spacing: 0.14em; text-transform: uppercase;
+}
+.m-menu nav a:hover, .m-menu nav a:focus-visible { background: rgba(255, 255, 255, 0.05); }
+.m-menu nav .nav-home { margin-top: 6px; border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; }
+
+.m-main { flex: 1; padding-inline: 16px; padding-bottom: 40px; }
+.m-main .sample { margin-top: 16px; }
+
+.m-top { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; align-items: start; padding-block: 24px 20px; }
+.m-top-plain { grid-template-columns: 1fr; padding-block: 48px; }
+.m-cover { width: 72px; border-radius: 6px; }
+.m-title {
+  margin: 8px 0 0;
+  font: 400 1.9rem/1.05 var(--font-display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--white);
+  text-wrap: balance; overflow-wrap: anywhere;
+}
+.m-top .alt { margin-top: 8px; font-size: 0.9rem; }
+.m-alt span { display: block; }
+
+.m-score { display: flex; flex-direction: column; gap: 12px; padding-block: 20px; border-block: 1px solid var(--line); }
+.m-score-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.m-score-num { font: 500 2.4rem/1 var(--font-display); color: var(--white); font-variant-numeric: tabular-nums; }
+.m-score-num.no-score { color: var(--faint); }
+.m-score .scale { --sz: clamp(14px, 5.2vw, 22px); --gap: 2px; }
+.m-score .score-progress { align-self: flex-start; margin-top: 0; }
+
+.m-take { margin-top: 20px; padding: 18px 18px 20px; border-radius: 18px; }
+.m-take .take-body { font-size: 1rem; }
+
+.m-info { margin: 20px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.m-info dt { font: 0.66rem/1.3 var(--font-data); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.m-info dd { margin: 3px 0 0; font-size: 0.9rem; }
+.m-info dd a { white-space: nowrap; }
+.m-info .sep { color: var(--faint); }
+.m-info .wide { grid-column: 1 / -1; }
+
+.m-block { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+.m-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.m-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 0.92rem; }
+.m-list .meta { font: 0.76rem/1.6 var(--font-data); color: var(--muted); white-space: nowrap; }
+.m-rel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; font-size: 0.92rem; }
+
+.m-chips { margin-top: 20px; }
+
+.m-subs { display: flex; flex-direction: column; gap: 14px; }
+.m-sub-head { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.9rem; }
+.m-sub .scale { --sz: clamp(12px, 4.4vw, 18px); --gap: 2px; }
+
+.m-more { display: flex; flex-direction: column; }
+.m-more .more-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+.m-characters {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 22px 14px;
+}
+.m-credits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.m-credits .pic-logo, .m-credits .pic-round { width: 48px; height: 48px; font-size: 1rem; }

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Aeyian Media List{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Oswald:wght@300..600&display=swap">
+<link rel="stylesheet" href="{{ asset('aml.css') }}">
+<link rel="stylesheet" href="{{ asset('aml-mobile.css') }}">
+</head>
+<body class="m">
+<header class="m-head">
+  <a class="brand" href="{{ base }}/"><span class="brand-disc" aria-hidden="true"></span>AML</a>
+  <details class="m-menu">
+    <summary>Menu</summary>
+    <nav aria-label="Aeyian Media List">
+      {% for label, code in menu %}<a href="{{ base }}/{{ code }}">{{ label }}</a>{% endfor %}
+      <a class="nav-home" href="/">Home</a>
+    </nav>
+  </details>
+</header>
+<main class="m-main">
+{% if sample_notice %}
+  <p class="sample">Sample data: scores, subratings, playtime and outside ratings on this page are placeholders.</p>
+{% endif %}
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>
