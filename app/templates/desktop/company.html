@@ -1,0 +1,40 @@
+{% extends "desktop/base.html" %}
+{% import "macros.html" as m %}
+{% block title %}{{ company.title }} · Aeyian Media List{% endblock %}
+{% block content %}
+<article class="company-page">
+
+  <div class="entry">
+    <div class="cover">
+      {{ m.picture(base, company.picture, company.title, 'logo', lazy=false) }}
+    </div>
+
+    <div class="entry-main">
+      <p class="eyebrow">{{ company.kind }}</p>
+      <h1 class="title">{{ company.title }}</h1>
+      {% if company.native_title or company.latinized_title %}
+      <p class="alt">
+        {%- if company.native_title %}<span lang="{{ company.native_lang }}">{{ company.native_title }}</span>{% endif -%}
+        {%- if company.native_title and company.latinized_title %} · {% endif -%}
+        {%- if company.latinized_title %}<span>{{ company.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+      {% if company.description %}
+      <p class="description" lang="{{ company.description.lang }}">{{ company.description.body }}</p>
+      {% endif %}
+    </div>
+
+    <dl class="info">
+      {% if company.titles %}<div><dt>Names</dt><dd>{{ m.title_list(company.titles, flag) }}</dd></div>{% endif %}
+    </dl>
+  </div>
+
+  {% if company.works %}
+  <section class="people-section" aria-labelledby="works-title">
+    <h2 class="section-title" id="works-title">Works</h2>
+    {{ m.work_cards(base, company.works) }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}

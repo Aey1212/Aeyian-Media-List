@@ -1,0 +1,37 @@
+{% extends "mobile/base.html" %}
+{% import "macros.html" as m %}
+{% block title %}{{ company.title }} · AML{% endblock %}
+{% block content %}
+<article class="m-work">
+
+  <header class="m-top">
+    <div class="m-portrait">{{ m.picture(base, company.picture, company.title, 'logo', lazy=false) }}</div>
+    <div>
+      <p class="eyebrow">{{ company.kind }}</p>
+      <h1 class="m-title">{{ company.title }}</h1>
+      {% if company.native_title or company.latinized_title %}
+      <p class="alt m-alt">
+        {%- if company.native_title %}<span lang="{{ company.native_lang }}">{{ company.native_title }}</span>{% endif -%}
+        {%- if company.latinized_title %}<span>{{ company.latinized_title }}</span>{% endif -%}
+      </p>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if company.description %}
+  <p class="description m-description" lang="{{ company.description.lang }}">{{ company.description.body }}</p>
+  {% endif %}
+
+  <dl class="m-info m-info-first">
+    {% if company.titles %}<div class="wide"><dt>Names</dt><dd>{{ m.title_list(company.titles, flag) }}</dd></div>{% endif %}
+  </dl>
+
+  {% if company.works %}
+  <section class="m-block">
+    <h2 class="section-title">Works</h2>
+    {{ m.work_cards(base, company.works, 'm-characters') }}
+  </section>
+  {% endif %}
+
+</article>
+{% endblock %}

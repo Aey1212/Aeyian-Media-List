@@ -8,7 +8,7 @@
 <article class="m-work">
 
   <header class="m-top">
-    <div class="m-portrait">{{ m.picture(base, character.picture, character.title, 'portrait') }}</div>
+    <div class="m-portrait">{{ m.picture(base, character.picture, character.title, 'portrait', lazy=false) }}</div>
     <div>
       <p class="eyebrow">{{ character.kind }}</p>
       <h1 class="m-title">{{ character.title }}</h1>

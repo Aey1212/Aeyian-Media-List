@@ -255,3 +255,46 @@ def targets(conn: psycopg.Connection, ids: Iterable[int], lang: str) -> dict[int
 def oldest_first(target: dict[str, Any]) -> tuple:
     """Sort key for targets: dated ones oldest first, undated ones last."""
     return (target["date"] is None, target["date"] or "", target["id"])
+
+
+# Credits by kind of credited entity: staff credits for people, company credits for companies.
+# Fixed SQL names only, never input.
+CREDIT_TABLES = {
+    "person": ("core.staff_credit", "person_id", "core.staff_role"),
+    "company": ("core.company_credit", "company_id", "core.company_role"),
+}
+
+
+def credited_works(conn: psycopg.Connection, entity_id: int, kind: str, lang: str) -> list[dict[str, Any]]:
+    """Works a person or company is credited on, oldest first, one entry per work with every role
+    held there (Director, Composer / Developer, Publisher) and the first note."""
+    table, who, roles = CREDIT_TABLES[kind]
+    rows = conn.execute(
+        f"""
+        SELECT c.target_id, r.labels AS role_labels, c.note
+          FROM {table} c
+          JOIN {roles} r ON r.code = c.role
+          JOIN core.entity tg ON tg.id = c.target_id AND tg.published_at IS NOT NULL
+         WHERE c.{who} = %(id)s
+         ORDER BY r.sort_order, c.sort_order, c.id
+        """,
+        {"id": entity_id},
+    ).fetchall()
+    works = targets(conn, (r["target_id"] for r in rows), lang)
+    entries: dict[int, dict[str, Any]] = {}
+    for r in rows:
+        work = works[r["target_id"]]
+        entry = entries.setdefault(r["target_id"], {
+            "title": work["title"],
+            "address": work["address"],
+            "kind": work["kind"],
+            "year": work["year"],
+            "picture": work["picture"],
+            "roles": [],
+            "note": None,
+        })
+        role = pick_label(r["role_labels"], lang)
+        if role not in entry["roles"]:
+            entry["roles"].append(role)
+        entry["note"] = entry["note"] or r["note"]
+    return [entries[t["id"]] for t in sorted((works[i] for i in entries), key=oldest_first)]

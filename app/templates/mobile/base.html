@@ -9,10 +9,12 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Oswald:wght@300..600&display=swap">
 <link rel="stylesheet" href="{{ asset('aml.css') }}">
 <link rel="stylesheet" href="{{ asset('aml-mobile.css') }}">
+<link rel="icon" type="image/png" href="{{ asset('AML.png') }}">
+<link rel="apple-touch-icon" href="{{ asset('AML.png') }}">
 </head>
 <body class="m">
 <header class="m-head">
-  <a class="brand" href="{{ base }}/"><span class="brand-disc" aria-hidden="true"></span>AML</a>
+  <a class="brand" href="{{ base }}/"><img class="brand-icon" src="{{ asset('AML.png') }}" alt="" width="30" height="30">AML</a>
   <details class="m-menu">
     <summary>Menu</summary>
     <nav aria-label="Aeyian Media List">

@@ -413,3 +413,22 @@ def test_sample_notice_only_when_switched_on(client):   # client: skip when the 
     loud = TestClient(create_app(Settings(root_path="/AML", database_url=URL, sample_notice=True)))
     assert "Sample data" not in quiet.get("/AML/04/0001/002").text
     assert "Sample data" in loud.get("/AML/04/0001/002").text
+
+
+@pytest.mark.parametrize("host", ["aeyempire.com", "m.aeyempire.com"])
+def test_the_aml_icon_is_the_tab_icon_and_the_header_mark(client, host):
+    html = client.get("/AML/04/0001/002", headers={"host": host}).text
+    head = html.split("</head>", 1)[0]
+    assert re.search(r'<link rel="icon" type="image/png" href="/AML/static/AML\.png\?v=[0-9a-f]+">', head)
+    assert re.search(r'<link rel="apple-touch-icon" href="/AML/static/AML\.png\?v=[0-9a-f]+">', head)
+    header = html.split("<header", 1)[1].split("</header>", 1)[0]
+    assert re.search(r'<a class="brand" href="/AML/"><img class="brand-icon" src="/AML/static/AML\.png\?v=[0-9a-f]+" alt="" width="30" height="30">', header)   # small even before the stylesheet loads
+    assert "brand-disc" not in html
+    missing = client.get("/AML/04/0001/0ZZ", headers={"host": host}).text   # 404 pages too
+    assert 'rel="icon"' in missing and "brand-icon" in missing
+
+
+def test_the_aml_icon_is_served(client):
+    served = client.get("/AML/static/AML.png")
+    assert served.status_code == 200 and served.headers["content-type"] == "image/png"
+    assert served.content[:8] == b"\x89PNG\r\n\x1a\n"

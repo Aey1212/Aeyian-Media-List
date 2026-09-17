@@ -17,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from app.config import Settings, load_settings
 from app.data.address import resolve
 from app.data.character import load_character
+from app.data.company import load_company
 from app.data.person import load_person
 from app.data.work import load_work
 from app.db import connect
@@ -39,6 +40,7 @@ MENU = [
 PAGES = {
     "character": (load_character, "character"),
     "person": (load_person, "person"),
+    "company": (load_company, "company"),
 }
 MEDIA_PAGE = (load_work, "work")
 

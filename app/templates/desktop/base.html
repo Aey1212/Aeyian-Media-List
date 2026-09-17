@@ -15,11 +15,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500&family=Oswald:wght@300..600&display=swap">
 <link rel="stylesheet" href="{{ asset('aml.css') }}">
+<link rel="icon" type="image/png" href="{{ asset('AML.png') }}">
+<link rel="apple-touch-icon" href="{{ asset('AML.png') }}">
 </head>
 <body>
 <header class="site-head">
   <div class="wrap">
-    <a class="brand" href="{{ base }}/"><span class="brand-disc" aria-hidden="true"></span>Aeyian Media List</a>
+    <a class="brand" href="{{ base }}/"><img class="brand-icon" src="{{ asset('AML.png') }}" alt="" width="30" height="30">Aeyian Media List</a>
     <nav class="site-nav" aria-label="Aeyian Media List">
       {% for label, code in menu %}<a href="{{ base }}/{{ code }}">{{ label }}</a>{% endfor %}
       <a class="nav-home" href="/">Home</a>

@@ -63,12 +63,8 @@ a:hover { filter: brightness(1.35); }
   display: flex; align-items: center; gap: 12px; border: 0;
   font: 400 0.95rem/1 var(--font-display); letter-spacing: 0.24em; text-transform: uppercase; color: var(--white);
 }
-.brand-disc {
-  position: relative; width: 22px; height: 22px; flex: none; border-radius: 50%;
-  background: var(--blue); box-shadow: 0 0 14px rgba(58, 65, 225, 0.6);
-}
-/* flag construction: disc = 18/13 of the arm inside a circle of 2 arms -> 9/13 of the circle */
-.brand-disc::after { content: ""; position: absolute; inset: 15.4%; border-radius: 50%; background: #fff; }
+/* Aey's AML icon (app/static/AML.png, 256 × 256) */
+.brand-icon { display: block; flex: none; width: 30px; height: 30px; }
 
 .site-nav { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px 22px; }
 .site-nav a {
@@ -351,6 +347,9 @@ a.tile:hover { filter: brightness(1.25); border-color: rgba(154, 160, 255, 0.35)
 /* ---------- character and person pages ---------- */
 
 .cover .pic-person { font-size: 3rem; }
+/* a company logo on its own page: shown whole in a big square tile */
+.cover .pic-logo { width: 100%; height: auto; aspect-ratio: 1 / 1; padding: 22px; border-radius: 16px; font-size: 3rem; }
+.cover .pic-logo.pic-empty { padding: 0; }
 .cover .pic-portrait { border-radius: 8px; font-size: 3rem; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35); }
 .description { margin: 18px 0 0; max-width: 62ch; line-height: 1.6; color: var(--text); }
 .appearance-meta { font: 0.72rem/1.4 var(--font-data); letter-spacing: 0.04em; color: var(--muted); }

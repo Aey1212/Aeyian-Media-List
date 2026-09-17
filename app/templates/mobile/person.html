@@ -5,7 +5,7 @@
 <article class="m-work">
 
   <header class="m-top">
-    <div class="m-portrait">{{ m.picture(base, person.picture, person.title, 'person') }}</div>
+    <div class="m-portrait">{{ m.picture(base, person.picture, person.title, 'person', lazy=false) }}</div>
     <div>
       <p class="eyebrow">{{ person.kind }}</p>
       <h1 class="m-title">{{ person.title }}</h1>

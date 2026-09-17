@@ -176,10 +176,11 @@
 {%- endmacro %}
 
 {#- A picture, or an initials tile of the same size. shape: portrait, person, round, logo.
-    The name is always printed next to it, so the image itself has empty alt text. -#}
-{% macro picture(base, path, name, shape) -%}
+    The name is always printed next to it, so the image itself has empty alt text.
+    lazy=false for the page's own picture at the top, which should never show up late. -#}
+{% macro picture(base, path, name, shape, lazy=true) -%}
 {%- if path -%}
-<img class="pic pic-{{ shape }}" src="{{ base }}{{ path }}" alt="" loading="lazy">
+<img class="pic pic-{{ shape }}" src="{{ base }}{{ path }}" alt=""{% if lazy %} loading="lazy"{% endif %}>
 {%- else -%}
 <span class="pic pic-{{ shape }} pic-empty" aria-hidden="true">{{ initials(name) }}</span>
 {%- endif -%}
