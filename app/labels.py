@@ -39,3 +39,15 @@ def format_signed(value: Decimal | int | float) -> str:
     if number < 0:
         return f"−{-number:.1f}"
     return "0.0"
+
+
+def format_duration(seconds: int | None) -> str | None:
+    """1440 -> '24 min'; 6600 -> '1 h 50 min'; 3600 -> '1 h'; 45 -> '45 s'."""
+    if not seconds:
+        return None
+    if seconds < 60:
+        return f"{seconds} s"
+    hours, minutes = divmod(round(seconds / 60), 60)
+    if not hours:
+        return f"{minutes} min"
+    return f"{hours} h" if not minutes else f"{hours} h {minutes} min"

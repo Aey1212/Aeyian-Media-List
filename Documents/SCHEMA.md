@@ -1,8 +1,8 @@
 # Aeyian Media List — Database Schema
 
-Status (2026/09/17): **All seven layers written and tested**, plus kind labels (0008) and latinized
-titles (0009) (`db/migrations/0001_core_entity.sql` … `0009_latinized_titles.sql`; `db/test.sh`:
-73 + 94 + 149 + 98 + 104 + 91 + 72 + 8 + 10 = 699 passed, 0 failed).
+Status (2026/09/17): **All seven layers written and tested**, plus kind labels (0008), latinized
+titles (0009) and more staff roles (0010) (`db/migrations/0001_core_entity.sql` … `0010_more_staff_roles.sql`; `db/test.sh`:
+73 + 94 + 149 + 98 + 104 + 91 + 72 + 8 + 10 + 4 = 703 passed, 0 failed).
 
 ## Engine and modules
 
@@ -378,7 +378,7 @@ used on any media or child entity.
 
 | Table | Options |
 |---|---|
-| `core.staff_role` | director, writer, composer, character_designer |
+| `core.staff_role` | original_creator, illustrator, director, series_composition, writer, composer, original_character_designer, character_designer, chief_animation_director, art_director, sound_director (0010); performer (layer 5) |
 | `core.company_role` | animation_studio, developer, publisher, production_company, distributor, licensor, broadcaster, original_network, localization_publisher, imprint |
 | `core.appearance_role` | protagonist, main, supporting, antagonist, playable, boss, guest |
 | `core.performance_type` | voice, live_action, motion_capture |
@@ -745,6 +745,14 @@ Which pictures each kind uses:
 Frames on the page today: cover 3:4, character portrait 3:4, person portrait rounded square
 (voice actor cards, person pages), person portrait circle (staff credits), company logo tile, language flags, age rating icons (56 px tall on desktop, 48 px on mobile). Banner, backdrop,
 thumbnail and the soundtrack's square cover get their frames when those pages are built.
+
+---
+
+## Data conventions
+
+- **Dates are the calendar date in the country of origin.** A Japanese late-night broadcast listed as
+  "October 1, 25:30" aired at 01:30 on October 2, so its date is `2008-10-02`. The same goes for
+  releases: the local date where it happened. (2026/09/17; Aey had no preference, easy to revisit.)
 
 ---
 

@@ -13,7 +13,7 @@ from urllib.parse import urlsplit
 import psycopg
 
 from app.data.common import aey_data, all_titles, display_titles, franchise_lineage, native_titles, pictures, title_block
-from app.labels import format_number, format_partial_date, pick_label
+from app.labels import format_duration, format_number, format_partial_date, pick_label
 
 
 def _media_relations(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
@@ -301,6 +301,40 @@ def _platforms(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict
     return [{"title": titles.get(r["id"]), "address": r["address"]} for r in rows]
 
 
+def _medium_facts(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, str]]:
+    """Facts only some media have, in the order the page lists them: format, episodes and
+    their length (anime, series), volumes and chapters (manga, light novels), runtime (movies).
+    Unknown values are left out."""
+    row = conn.execute(
+        """
+        SELECT f.labels AS format_labels,
+               COALESCE(a.episode_count, s.episode_count) AS episodes,
+               COALESCE(a.typical_runtime_s, s.typical_runtime_s) AS episode_length,
+               COALESCE(m.volume_count, ln.volume_count) AS volumes,
+               m.chapter_count AS chapters,
+               mv.runtime_s AS runtime
+          FROM core.entity e
+          LEFT JOIN media.anime a        ON a.entity_id = e.id
+          LEFT JOIN media.anime_format f ON f.code = a.format
+          LEFT JOIN media.series s       ON s.entity_id = e.id
+          LEFT JOIN media.manga m        ON m.entity_id = e.id
+          LEFT JOIN media.light_novel ln ON ln.entity_id = e.id
+          LEFT JOIN media.movie mv       ON mv.entity_id = e.id
+         WHERE e.id = %(id)s
+        """,
+        {"id": entity_id},
+    ).fetchone()
+    facts = [
+        ("Format", pick_label(row["format_labels"], lang)),
+        ("Episodes", row["episodes"]),
+        ("Episode Length", format_duration(row["episode_length"])),
+        ("Volumes", row["volumes"]),
+        ("Chapters", row["chapters"]),
+        ("Runtime", format_duration(row["runtime"])),
+    ]
+    return [{"label": label, "value": str(value)} for label, value in facts if value is not None]
+
+
 def _age_ratings(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
     """The work's age ratings, one per system, with icons.
 
@@ -430,6 +464,7 @@ def load_work(conn: psycopg.Connection, entity_id: int, lang: str = "en") -> dic
         **title_block(conn, entity_id, lang),
         "titles": all_titles(conn, entity_id, lang),
         "status": pick_label(head["status_labels"], lang),
+        "facts": _medium_facts(conn, entity_id, lang),
         "start_date": format_partial_date(head["start_date"]),
         "end_date": format_partial_date(head["end_date"]),
         "source_type": pick_label(head["source_labels"], lang),

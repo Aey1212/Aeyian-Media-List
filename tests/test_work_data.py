@@ -273,3 +273,45 @@ def test_no_page_for_non_media_unknown_or_draft(conn):
     with conn.transaction(force_rollback=True):
         draft = conn.execute("SELECT core.create_entity('game') AS id").fetchone()["id"]
         assert load_work(conn, draft, "en") is None
+
+
+def test_duration_text():
+    from app.labels import format_duration
+
+    assert [format_duration(s) for s in (None, 45, 1440, 3600, 6600)] == [None, "45 s", "24 min", "1 h", "1 h 50 min"]
+
+
+def test_medium_facts_for_anime_and_light_novels_none_for_games(conn, page):
+    assert page["facts"] == []   # a game has none of these
+    with conn.transaction(force_rollback=True):
+        anime = conn.execute("SELECT core.create_entity('anime') AS id").fetchone()["id"]
+        conn.execute("INSERT INTO core.title (entity_id, lang, title_type, text) VALUES (%s, 'en', 'full', 'Test Anime')", (anime,))
+        conn.execute("UPDATE core.entity SET published_at = now() WHERE id = %s", (anime,))
+        conn.execute("UPDATE media.anime SET format = 'tv', episode_count = 25, typical_runtime_s = 1440 WHERE entity_id = %s", (anime,))
+        assert load_work(conn, anime, "en")["facts"] == [
+            {"label": "Format", "value": "TV"}, {"label": "Episodes", "value": "25"}, {"label": "Episode Length", "value": "24 min"},
+        ]
+        novel = conn.execute("SELECT core.create_entity('light_novel') AS id").fetchone()["id"]
+        conn.execute("INSERT INTO core.title (entity_id, lang, title_type, text) VALUES (%s, 'en', 'full', 'Test Novel')", (novel,))
+        conn.execute("UPDATE core.entity SET published_at = now() WHERE id = %s", (novel,))
+        assert load_work(conn, novel, "en")["facts"] == []   # unknown counts are left out
+        conn.execute("UPDATE media.light_novel SET volume_count = 10 WHERE entity_id = %s", (novel,))
+        assert load_work(conn, novel, "en")["facts"] == [{"label": "Volumes", "value": "10"}]
+
+
+def test_medium_facts_are_listed_after_status_on_both_pages(conn):
+    from app.main import MENU, TEMPLATES
+
+    with conn.transaction(force_rollback=True):
+        manga = conn.execute("SELECT core.create_entity('manga') AS id").fetchone()["id"]
+        conn.execute("INSERT INTO core.title (entity_id, lang, title_type, text) VALUES (%s, 'en', 'full', 'Test Manga')", (manga,))
+        conn.execute("UPDATE core.entity SET published_at = now() WHERE id = %s", (manga,))
+        conn.execute("UPDATE media.work SET status = 'publishing' WHERE entity_id = %s", (manga,))
+        conn.execute("UPDATE media.manga SET volume_count = 12, chapter_count = 80 WHERE entity_id = %s", (manga,))
+        work = load_work(conn, manga, "en")
+    context = {"work": work, "base": "/AML", "asset": lambda name: name, "flag": lambda lang: None,
+               "menu": MENU, "sample_notice": False, "mobile_origin": "https://m.aeyempire.com"}
+    for variant in ("desktop", "mobile"):
+        html = TEMPLATES.env.get_template(f"{variant}/work.html").render(context)
+        facts = html.split("<dt>Status</dt>", 1)[1]
+        assert "<div><dt>Volumes</dt><dd>12</dd></div><div><dt>Chapters</dt><dd>80</dd></div>" in facts.replace("\n", "").replace("    ", ""), variant

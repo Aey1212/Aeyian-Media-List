@@ -110,7 +110,7 @@ def test_page_shows_the_parts(client):
     for expected in (
         'href="/AML/static/aml.css?v=',
         "ペルソナ3 リロード", "Perusona Surī Rirōdo",
-        '<li class="rel-row"><span class="rel-tag">Original work</span><a href="/AML/04/0001/001">Persona 3</a><span class="year">2006</span></li>',
+        '<li class="rel-row"><span class="rel-tag">Original work</span><a href="/AML/04/0001/001">Persona 3</a><span class="year">Game · 2006</span></li>',
         '<a class="crumb-parent" href="/AML/21/0002">Shin Megami Tensei</a><span class="crumb-sep" aria-hidden="true">›</span><a class="crumb-current" href="/AML/21/0001">Persona</a>',
         "Role-Playing › ", "Social Simulation", "Calendar System",
         "Developer", "Atlus", "Publisher", "Sega", "Composer", "Shoji Meguro",

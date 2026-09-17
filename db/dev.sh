@@ -6,7 +6,8 @@
 #   db/dev.sh down          stop it; the data is kept
 #   db/dev.sh status        show whether it runs and which migrations are applied
 #   db/dev.sh psql          open psql on the dev database
-#   db/dev.sh seed          load the files in db/seed/ that are not loaded yet (.sql, or .py run with the repo's .venv)
+#   db/dev.sh seed          load the test data in db/seed/ that is not loaded yet (.sql, or .py run with the repo's .venv)
+#   db/dev.sh content       load the real content in db/content/ that is not loaded yet (the same way)
 #   db/dev.sh reset --yes   delete the dev database and its data
 #
 #   CONTAINER=docker db/dev.sh up    use docker instead of podman
@@ -81,33 +82,39 @@ status() {
   pg -At -c "SELECT name || '  ' || to_char(applied_at, 'YYYY/MM/DD HH24:MI') FROM public.aml_migration ORDER BY name"
 }
 
-seed() {
+# Loads every .sql / .py file in a folder that is not recorded yet, in file name order.
+#   load_files <folder> <tracking table> <word for the output>
+load_files() {
+  local folder="$1" table="$2" word="$3"
   if ! running; then echo "dev database is not running: db/dev.sh up" >&2; return 1; fi
   pg -c "SET client_min_messages = warning;
-         CREATE TABLE IF NOT EXISTS public.aml_seed (
+         CREATE TABLE IF NOT EXISTS public.${table} (
            name       text PRIMARY KEY,
            applied_at timestamptz NOT NULL DEFAULT now()
          )" >/dev/null
 
   local s n loaded=0
-  for s in seed/*; do   # in file name order, whatever the type
+  for s in "$folder"/*; do   # in file name order, whatever the type
     case "$s" in *.sql|*.py) ;; *) continue ;; esac
     n="$(basename "$s")"
-    [ "$(pg -At -c "SELECT count(*) FROM public.aml_seed WHERE name = '${n}'")" = "0" ] || continue
+    [ "$(pg -At -c "SELECT count(*) FROM public.${table} WHERE name = '${n}'")" = "0" ] || continue
     case "$s" in
       *.sql) pg < "$s" >/dev/null ;;
-      # Python seeds write files as well as rows (pictures into the media folder).
+      # Python files write files as well as rows (pictures into the media folder).
       *.py)
         if [ ! -x ../.venv/bin/python ]; then echo "no .venv in the repo: run uv sync first" >&2; return 1; fi
         (cd .. && PYTHONPATH=. AML_DATABASE_URL="postgresql://aml@127.0.0.1:${port}/aml" .venv/bin/python "db/$s") ;;
     esac
-    pg -c "INSERT INTO public.aml_seed (name) VALUES ('${n}')" >/dev/null
-    echo "seeded ${n}"
+    pg -c "INSERT INTO public.${table} (name) VALUES ('${n}')" >/dev/null
+    echo "${word} ${n}"
     loaded=$((loaded + 1))
   done
-  [ "$loaded" -eq 0 ] && echo "no seed files left to load"
+  [ "$loaded" -eq 0 ] && echo "no ${folder} files left to load"
   return 0
 }
+
+seed() { load_files seed aml_seed seeded; }
+content() { load_files content aml_content loaded; }
 
 reset() {
   if [ "${1:-}" != "--yes" ]; then
@@ -124,7 +131,8 @@ case "${1:-}" in
   down)   down ;;
   status) status ;;
   psql)   "$cli" exec -it "$name" psql -X -h 127.0.0.1 -U aml -d aml ;;
-  seed)   seed ;;
+  seed)    seed ;;
+  content) content ;;
   reset)  shift; reset "$@" ;;
-  *)      sed -n '2,16p' "$(basename "$0")" | sed 's/^# \{0,1\}//'; exit 1 ;;   # already cd'd into db/
+  *)      sed -n '2,17p' "$(basename "$0")" | sed 's/^# \{0,1\}//'; exit 1 ;;   # already cd'd into db/
 esac

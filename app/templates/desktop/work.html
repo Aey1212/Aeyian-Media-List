@@ -29,7 +29,7 @@
           <span class="fact-label">Related</span>
           <ul class="fact-list">
             {% for r in work.relations %}
-            <li class="rel-row"><span class="rel-tag">{{ r.label }}</span><a href="{{ base }}{{ r.address }}">{{ r.title }}</a>{% if r.year %}<span class="year">{{ r.year }}</span>{% endif %}{% if r.note %}<span class="note">{{ r.note }}</span>{% endif %}</li>
+            <li class="rel-row"><span class="rel-tag">{{ r.label }}</span><a href="{{ base }}{{ r.address }}">{{ r.title }}</a><span class="year">{{ r.kind }}{% if r.year %} · {{ r.year }}{% endif %}</span>{% if r.note %}<span class="note">{{ r.note }}</span>{% endif %}</li>
             {% endfor %}
           </ul>
         </div>
@@ -57,6 +57,7 @@
     <dl class="info">
       {% if work.titles %}<div><dt>Titles</dt><dd>{{ m.title_list(work.titles, flag) }}</dd></div>{% endif %}
       {% if work.status %}<div><dt>Status</dt><dd>{{ work.status }}</dd></div>{% endif %}
+      {% for f in work.facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
       {% if work.platforms %}
       <div><dt>Platforms</dt><dd>{% for p in work.platforms %}<a href="{{ base }}{{ p.address }}">{{ p.title }}</a>{% if not loop.last %}<span class="sep"> · </span>{% endif %}{% endfor %}</dd></div>
       {% endif %}

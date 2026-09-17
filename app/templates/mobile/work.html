@@ -27,6 +27,7 @@
   <dl class="m-info">
     {% if work.titles %}<div class="wide"><dt>Titles</dt><dd>{{ m.title_list(work.titles, flag) }}</dd></div>{% endif %}
     {% if work.status %}<div><dt>Status</dt><dd>{{ work.status }}</dd></div>{% endif %}
+    {% for f in work.facts %}<div><dt>{{ f.label }}</dt><dd>{{ f.value }}</dd></div>{% endfor %}
     {% if work.source_type %}<div><dt>Source</dt><dd>{{ work.source_type }}</dd></div>{% endif %}
     {% if work.platforms %}
     <div class="wide"><dt>Platforms</dt><dd>{% for p in work.platforms %}<a href="{{ base }}{{ p.address }}">{{ p.title }}</a>{% if not loop.last %}<span class="sep"> · </span>{% endif %}{% endfor %}</dd></div>
@@ -39,7 +40,7 @@
     <h2 class="section-title">Connections</h2>
     <ul class="m-rel-list">
       {% for r in work.relations %}
-      <li class="rel-row"><span class="rel-tag">{{ r.label }}</span><a href="{{ base }}{{ r.address }}">{{ r.title }}</a>{% if r.year %}<span class="year">{{ r.year }}</span>{% endif %}</li>
+      <li class="rel-row"><span class="rel-tag">{{ r.label }}</span><a href="{{ base }}{{ r.address }}">{{ r.title }}</a><span class="year">{{ r.kind }}{% if r.year %} · {{ r.year }}{% endif %}</span></li>
       {% endfor %}
       {% for f in work.franchises %}
       <li class="rel-row"><span class="rel-tag">Franchise</span>{{ m.crumbs(base, f) }}</li>
