@@ -21,6 +21,7 @@ from app.data.company import load_company
 from app.data.franchise import load_franchise
 from app.data.person import load_person
 from app.data.work import load_work
+from app.tools.pictures import SLOT_WIDTHS
 from app.db import connect
 
 HERE = Path(__file__).parent
@@ -111,6 +112,22 @@ def create_site(settings: Settings) -> FastAPI:
                         return f"{settings.root_path}/flags/{path.name}?v={path.stat().st_mtime_ns:x}"
         return None
 
+    def sized(path: str | None, shape: str) -> dict[str, str] | None:
+        """{src, srcset} for a picture: the copy made for the size this shape is drawn in, so the
+        browser has nothing to resample, and the next size up for denser screens."""
+        if not path:
+            return None
+        folder = Path(settings.media_dir)
+        sha = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        widths = [w for w in SLOT_WIDTHS.get(shape, []) if (folder / f"{sha}@{w}.webp").is_file()]
+        if not widths:
+            return {"src": path, "srcset": ""}
+        one, two = widths[0], widths[1] if len(widths) > 1 else None
+        srcset = f"{settings.root_path}/media/{sha}@{one}.webp 1x"
+        if two:
+            srcset += f", {settings.root_path}/media/{sha}@{two}.webp 2x"
+        return {"src": f"/media/{sha}@{one}.webp", "srcset": srcset}
+
     def page_context(**values):
         return {
             "base": settings.root_path,
@@ -119,6 +136,7 @@ def create_site(settings: Settings) -> FastAPI:
             "menu": MENU,
             "asset": asset,
             "flag": flag,
+            "sized": sized,
             **values,
         }
 

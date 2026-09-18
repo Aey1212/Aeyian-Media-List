@@ -9,6 +9,7 @@ import base64
 import hashlib
 import os
 import re
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -432,3 +433,51 @@ def test_the_aml_icon_is_served(client):
     served = client.get("/AML/static/AML.png")
     assert served.status_code == 200 and served.headers["content-type"] == "image/png"
     assert served.content[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+@pytest.mark.parametrize("host", ["aeyempire.com", "m.aeyempire.com"])
+def test_the_episode_list_sits_above_the_characters(client, host):
+    r = client.get("/AML/01/0003/001", headers={"host": host})
+    if r.status_code == 404:
+        pytest.skip("Toradora content is not loaded: run db/dev.sh content")
+    html = r.text
+    assert html.index(">Episodes</h2>") < html.index(">Characters</h2>")
+    episodes = html.split(">Episodes</h2>", 1)[1].split("</ol>", 1)[0]
+    assert episodes.count('<li class="episode">') == 26
+    assert '<span class="episode-no">01</span><a href="/AML/01/0003/001/12/001">Tiger and Dragon</a><span class="year">2008/10/02</span>' in episodes
+    assert '<span class="episode-no">OVA</span><a href="' in episodes   # the extra episode says OVA
+    assert episodes.rindex("The True Meaning of Bento") > episodes.rindex("Toradora!")   # still last
+    assert "The True Meaning of Bento" in episodes
+
+
+def test_a_work_shows_its_cover_when_it_has_one(client, tmp_path):
+    """The cover slot draws the picture; without one it keeps the flag emblem."""
+    media = Path(os.environ.get("AML_MEDIA_DIR", Path(__file__).resolve().parent.parent / "media"))
+    app = TestClient(create_app(Settings(root_path="/AML", database_url=URL, media_dir=str(media))))
+    anime = app.get("/AML/01/0003/001")
+    if anime.status_code == 404:
+        pytest.skip("Toradora content is not loaded: run db/dev.sh content")
+    # the cover is the same element as the same picture shown as an item elsewhere
+    cover = re.search(
+        r'<div class="cover">\s*<img class="pic pic-portrait" src="(/AML/media/[0-9a-f]{64}@180\.webp)"'
+        r' srcset="\1 1x, (/AML/media/[0-9a-f]{64}@360\.webp) 2x" alt="" loading="lazy">',
+        anime.text,
+    )
+    assert cover, "the anime page shows no cover"
+    assert "No cover yet" not in anime.text
+    for url in cover.groups():
+        served = app.get(url)
+        assert served.status_code == 200 and served.headers["content-type"] == "image/webp"
+    without = app.get("/AML/04/0001/002")   # Persona 3 Reload has no cover
+    assert 'class="cover-emblem"' in without.text and "No cover yet" in without.text
+
+
+def test_pictures_come_in_the_size_they_are_drawn(client):
+    """A picture drawn 180px wide is stored at 180px, so the browser resamples nothing."""
+    html = client.get("/AML/22/0008").text
+    if "pic-portrait" not in html:
+        pytest.skip("Toradora content is not loaded: run db/dev.sh content")
+    portrait = re.search(r'<img class="pic pic-portrait" src="([^"]+@180\.webp)" srcset="\1 1x, ([^"]+@360\.webp) 2x"', html)
+    assert portrait, "the portrait is not served at the size it is drawn"
+    assert client.get(portrait.group(1)).status_code == 200
+    assert client.get(portrait.group(2)).status_code == 200

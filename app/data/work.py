@@ -76,6 +76,33 @@ def _franchises(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dic
     return result
 
 
+def _episodes(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
+    """The work's own episodes, in order. An episode with no number is an extra (an OVA
+    released with the discs): it comes last and shows "OVA" where the number goes."""
+    rows = conn.execute(
+        """
+        SELECT c.id, core.address(c.id) AS address, ep.number_in_season AS number, ep.aired_on
+          FROM core.entity c
+          JOIN child.episode ep ON ep.entity_id = c.id
+         WHERE c.parent_id = %(id)s AND c.published_at IS NOT NULL
+         ORDER BY ep.number_in_season NULLS LAST, c.seq
+        """,
+        {"id": entity_id},
+    ).fetchall()
+    titles = display_titles(conn, (r["id"] for r in rows), lang)
+    numbers = [format_number(r["number"]) for r in rows]
+    width = max((len(n) for n in numbers if n), default=1)
+    return [
+        {
+            "number": number.rjust(width, "0") if number else "OVA",
+            "title": titles.get(r["id"]),
+            "address": r["address"],
+            "date": format_partial_date(r["aired_on"]),
+        }
+        for r, number in zip(rows, numbers)
+    ]
+
+
 def _children(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[str, Any]]:
     rows = conn.execute(
         """
@@ -87,7 +114,8 @@ def _children(conn: psycopg.Connection, entity_id: int, lang: str) -> list[dict[
           LEFT JOIN child.volume v      ON v.entity_id = c.id
           LEFT JOIN child.season s      ON s.entity_id = c.id
           LEFT JOIN child.soundtrack st ON st.entity_id = c.id
-         WHERE c.parent_id = %(id)s AND c.published_at IS NOT NULL AND c.kind <> 'release'
+         WHERE c.parent_id = %(id)s AND c.published_at IS NOT NULL
+           AND c.kind NOT IN ('release', 'episode')   -- releases are facts; episodes have their own section
          ORDER BY k.code, c.seq
         """,
         {"id": entity_id},
@@ -463,6 +491,8 @@ def load_work(conn: psycopg.Connection, entity_id: int, lang: str = "en") -> dic
         "kind": pick_label(head["kind_labels"], lang),
         **title_block(conn, entity_id, lang),
         "titles": all_titles(conn, entity_id, lang),
+        # the work's own picture: a cover, or a poster for series and movies
+        "picture": pictures(conn, [entity_id], ["cover", "poster", "box_art"]).get(entity_id),
         "status": pick_label(head["status_labels"], lang),
         "facts": _medium_facts(conn, entity_id, lang),
         "start_date": format_partial_date(head["start_date"]),
@@ -470,6 +500,7 @@ def load_work(conn: psycopg.Connection, entity_id: int, lang: str = "en") -> dic
         "source_type": pick_label(head["source_labels"], lang),
         "franchises": _franchises(conn, entity_id, lang),
         "relations": _media_relations(conn, entity_id, lang),
+        "episodes": _episodes(conn, entity_id, lang),
         "children": _children(conn, entity_id, lang),
         "genres": genres,
         "tags": tags,

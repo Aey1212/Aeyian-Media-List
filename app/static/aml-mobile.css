@@ -35,6 +35,7 @@ body.m { font-size: 15px; }
 .m-top { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 16px; align-items: start; padding-block: 24px 20px; }
 .m-top-plain { grid-template-columns: 1fr; padding-block: 48px; }
 .m-cover { width: 72px; border-radius: 6px; }
+.m-cover .pic-portrait { border-radius: 6px; }
 .m-portrait .pic-portrait { border-radius: 6px; font-size: 1.4rem; }
 .m-portrait .pic-person { border-radius: 10px; font-size: 1.4rem; box-shadow: none; }
 .m-portrait .pic-logo { width: 72px; height: 72px; padding: 8px; border-radius: 10px; font-size: 1.4rem; }
@@ -72,6 +73,7 @@ body.m { font-size: 15px; }
 .m-info-first { margin-top: 0; padding-top: 20px; border-top: 1px solid var(--line); }
 .m-info .age-icon, .m-info .age-text { height: 48px; }
 
+.m-block .episode-list { grid-template-columns: 1fr; }
 .m-block { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 
 .m-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }

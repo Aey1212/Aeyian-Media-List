@@ -1,5 +1,5 @@
 {% extends "mobile/base.html" %}
-{% import "macros.html" as m %}
+{% import "macros.html" as m with context %}
 {% import "mobile/parts.html" as parts %}
 {% block title %}{{ work.title }} · AML{% endblock %}
 {% block content %}
@@ -7,7 +7,11 @@
 <article class="m-work">
 
   <header class="m-top">
+    {% if work.picture %}
+    <div class="m-cover">{{ m.picture(base, work.picture, work.title, 'portrait') }}</div>
+    {% else %}
     <div class="cover-emblem m-cover" aria-hidden="true"></div>
+    {% endif %}
     <div>
       <p class="eyebrow">{{ work.kind }}{% if work.start_date %} · {{ work.start_date }}{% endif %}{% if work.end_date %} – {{ work.end_date }}{% endif %}</p>
       <h1 class="m-title">{{ work.title }}</h1>
@@ -61,6 +65,13 @@
   {% endif %}
 
   {{ parts.subratings(aey) }}
+
+  {% if work.episodes %}
+  <section class="m-block">
+    <h2 class="section-title">Episodes</h2>
+    {{ m.episode_list(base, work.episodes) }}
+  </section>
+  {% endif %}
 
   {% if work.characters %}
   <section class="m-block">

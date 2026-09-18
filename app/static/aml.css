@@ -104,6 +104,8 @@ main.wrap { padding-bottom: 56px; }
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 40px rgba(58, 65, 225, 0.25);
 }
 .cover-note { font: 0.68rem/1.35 var(--font-data); color: var(--faint); }
+/* A work's cover is drawn by the same macro, with the same class and attributes, as the
+   same picture shown as an item on other pages (.pic-portrait): one code path, one look. */
 
 .eyebrow { margin: 0; font: 0.74rem/1 var(--font-data); letter-spacing: 0.12em; text-transform: uppercase; color: var(--blue-ink); }
 
@@ -343,6 +345,23 @@ a.tile:hover { filter: brightness(1.25); border-color: rgba(154, 160, 255, 0.35)
 .tile-value small { margin-left: 5px; font: 0.76rem/1 var(--font-data); color: var(--muted); }
 .tile-link { padding-right: 40px; }
 .tile-arrow { position: absolute; top: 14px; right: 16px; color: var(--blue-ink); font-size: 0.95rem; line-height: 1; }
+
+/* episode list: two to a row on desktop, number, title, air date */
+.episode-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px;
+}
+.episode {
+  display: flex; align-items: baseline; gap: 12px; min-width: 0;
+  padding: 9px 14px; border: 1px solid var(--line); border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025); font-size: 0.92rem;
+}
+.episode-no {
+  flex: none; min-width: 2.4em; text-align: right;
+  font: 0.78rem/1.5 var(--font-data); color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.episode a { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.episode .year { flex: none; }
 
 /* ---------- character and person pages ---------- */
 

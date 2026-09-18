@@ -1,5 +1,5 @@
 {% extends "desktop/base.html" %}
-{% import "macros.html" as m %}
+{% import "macros.html" as m with context %}
 {% import "desktop/parts.html" as parts %}
 {% block title %}{{ work.title }} · Aeyian Media List{% endblock %}
 {% block content %}
@@ -8,8 +8,12 @@
 
   <div class="entry">
     <div class="cover">
+      {% if work.picture %}
+      {{ m.picture(base, work.picture, work.title, 'portrait') }}
+      {% else %}
       <div class="cover-emblem" aria-hidden="true"></div>
       <span class="cover-note">No cover yet</span>
+      {% endif %}
     </div>
 
     <div class="entry-main">
@@ -69,6 +73,13 @@
   {{ parts.score_band(aey) }}
 
   {{ parts.subratings_and_take(aey) }}
+
+  {% if work.episodes %}
+  <section class="people-section" aria-labelledby="episodes-title">
+    <h2 class="section-title" id="episodes-title">Episodes</h2>
+    {{ m.episode_list(base, work.episodes) }}
+  </section>
+  {% endif %}
 
   {% if work.characters %}
   <section class="people-section" aria-labelledby="characters-title">

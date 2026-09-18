@@ -701,6 +701,11 @@ not list people or companies; adding them is a row in `core.attach_kind`.
 
 ## Image ratios (site standard, 2026/09/17)
 
+**What the site stores is a web copy**: `app/tools/add_image.py` scales a picture down into the size
+below and saves it as WebP (a 960 × 1280 portrait becomes 480 × 640, about 35 KB instead of 1 MB). Pictures
+are never enlarged or cropped on import, and SVG is stored untouched. Aey keeps the originals; `--as-is`
+stores a file exactly as it is.
+
 Pages crop every picture to its frame (`object-fit: cover`), so pictures made at these ratios show
 whole. Tall pictures use 3:4, the frame size Aey approved on the first page. Sizes are the smallest
 that stay sharp on a high-density screen.

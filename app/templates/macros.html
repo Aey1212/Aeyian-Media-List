@@ -104,6 +104,16 @@
 {%- endif -%}
 {%- endmacro %}
 
+{#- An episode list: number, title and air date, one row each. An extra episode
+    (an OVA released with the discs) has no number. -#}
+{% macro episode_list(base, episodes) -%}
+<ol class="episode-list">
+  {%- for e in episodes %}
+  <li class="episode"><span class="episode-no">{{ e.number or '' }}</span><a href="{{ base }}{{ e.address }}">{{ e.title }}</a>{% if e.date %}<span class="year">{{ e.date }}</span>{% endif %}</li>
+  {%- endfor %}
+</ol>
+{%- endmacro %}
+
 {#- A franchise with the franchises above it: Shin Megami Tensei › Persona.
     On the franchise's own page the last crumb is not a link. -#}
 {% macro crumbs(base, f, link_current=true) -%}
@@ -196,7 +206,8 @@
     lazy=false for the page's own picture at the top, which should never show up late. -#}
 {% macro picture(base, path, name, shape, lazy=true) -%}
 {%- if path -%}
-<img class="pic pic-{{ shape }}" src="{{ base }}{{ path }}" alt=""{% if lazy %} loading="lazy"{% endif %}>
+{%- set s = sized(path, shape) -%}
+<img class="pic pic-{{ shape }}" src="{{ base }}{{ s.src }}"{% if s.srcset %} srcset="{{ s.srcset }}"{% endif %} alt=""{% if lazy %} loading="lazy"{% endif %}>
 {%- else -%}
 <span class="pic pic-{{ shape }} pic-empty" aria-hidden="true">{{ initials(name) }}</span>
 {%- endif -%}

@@ -315,3 +315,18 @@ def test_medium_facts_are_listed_after_status_on_both_pages(conn):
         html = TEMPLATES.env.get_template(f"{variant}/work.html").render(context)
         facts = html.split("<dt>Status</dt>", 1)[1]
         assert "<div><dt>Volumes</dt><dd>12</dd></div><div><dt>Chapters</dt><dd>80</dd></div>" in facts.replace("\n", "").replace("    ", ""), variant
+
+
+def test_episodes_are_their_own_list_not_child_tiles(conn):
+    """The Toradora! anime: 25 numbered episodes and the OVA, which has no number."""
+    anime = resolve(conn, "/01/0003/001")
+    if anime is None:
+        pytest.skip("Toradora content is not loaded: run db/dev.sh content")
+    page = load_work(conn, anime["entity_id"], "en")
+    episodes = page["episodes"]
+    assert len(episodes) == 26
+    assert episodes[0] == {"number": "01", "title": "Tiger and Dragon", "address": "/01/0003/001/12/001", "date": "2008/10/02"}
+    assert episodes[24]["number"] == "25" and episodes[24]["title"] == "Toradora!"
+    assert episodes[25] == {"number": "OVA", "title": "The True Meaning of Bento",
+                            "address": episodes[25]["address"], "date": "2011/12/21"}
+    assert [c["kind"] for c in page["children"]] == []   # episodes do not repeat as tiles
