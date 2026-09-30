@@ -1,0 +1,27 @@
+{#- The change log as a list: when, through which door, what, and from what to what. -#}
+{% macro value(v) -%}
+{%- if v is none -%}<span class="ed-none">nothing</span>
+{%- elif v is mapping -%}
+  {%- for key, item in v.items() if item is not none -%}
+  <span class="ed-pair"><span class="ed-key">{{ key }}</span> {{ item if (item is not string or item | length < 60) else item[:57] ~ '…' }}</span>
+  {%- endfor -%}
+{%- else -%}{{ v }}{%- endif -%}
+{%- endmacro %}
+
+{% macro changes_list(base, changes, show_entity=true) -%}
+{% if changes %}
+<ol class="ed-changes">
+  {% for c in changes %}
+  <li>
+    <span class="ed-when">{{ c.changed_at.strftime('%Y/%m/%d %H:%M') }}</span>
+    <span class="ed-via">{{ c.via }}</span>
+    <span class="ed-op">{{ c.operation }}</span>
+    {% if show_entity %}<span class="ed-what">{{ c.entity_label }}</span>{% endif %}
+    <span class="ed-diff"><span class="ed-before">{{ value(c.before) }}</span><span class="ed-arrow" aria-label="became">→</span><span class="ed-after">{{ value(c.after) }}</span></span>
+  </li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="ed-quiet">No changes yet.</p>
+{% endif %}
+{%- endmacro %}

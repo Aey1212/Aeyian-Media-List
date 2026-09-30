@@ -1,0 +1,33 @@
+{% extends "editor/base.html" %}
+{% import "editor/_changes.html" as ch %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<section class="ed-section">
+  <h1 class="section-title">Find</h1>
+  <form class="ed-search" method="get" action="{{ base }}/">
+    <input type="search" name="q" value="{{ q }}" placeholder="A name, or an address like /01/0003/001" autofocus>
+    <button type="submit">Search</button>
+  </form>
+  {% if q %}
+    {% if results %}
+    <ul class="ed-results">
+      {% for r in results %}
+      <li>
+        <a href="{{ base }}/e{{ r.address }}"><span class="ed-kind">{{ r.kind }}</span><span class="ed-title">{{ r.title or '(no name)' }}</span></a>
+        <span class="ed-address">{{ r.address }}</span>
+        {% if r.parent_title %}<span class="ed-parent">in {{ r.parent_title }}</span>{% endif %}
+        {% if not r.published %}<span class="ed-draft">draft</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="ed-quiet">Nothing matches “{{ q }}”.</p>
+    {% endif %}
+  {% endif %}
+</section>
+
+<section class="ed-section">
+  <h2 class="section-title">Latest changes</h2>
+  {{ ch.changes_list(base, changes) }}
+</section>
+{% endblock %}

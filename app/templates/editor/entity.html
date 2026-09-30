@@ -1,0 +1,111 @@
+{% extends "editor/base.html" %}
+{% import "editor/_changes.html" as ch %}
+{% block title %}{{ entity.title or entity.address }}{% endblock %}
+{% block content %}
+<header class="ed-head">
+  <p class="eyebrow">{{ entity.kind_label }}{% if not published %} · <span class="ed-draft">draft</span>{% endif %}</p>
+  <h1 class="title">{{ entity.title or '(no name)' }}</h1>
+  <p class="ed-head-meta">
+    <span class="ed-address">{{ entity.address }}</span>
+    {% if published %}<a class="ed-more" href="{{ public_url }}{{ entity.address }}">View on the site ↗</a>{% endif %}
+  </p>
+</header>
+{% if done %}<p class="ed-message ed-done" role="status">Saved: {{ done }}</p>{% endif %}
+
+{% if entity.rateable %}
+<section class="ed-section" id="score">
+  <h2 class="section-title">General Score</h2>
+  <form method="post" class="ed-form ed-row">
+    <label>Points <input type="number" name="general" min="-50" max="50" step="1" value="{{ score.general if score else '' }}" required></label>
+    <label>Rated on <input name="rated_on" value="{{ (score.rated_on or '') if score else '' }}" placeholder="YYYY-MM-DD"></label>
+    <button name="op" value="set_score">Save</button>
+    {% if score %}<button name="op" value="clear_score" class="ed-danger" formnovalidate>Clear</button>{% endif %}
+  </form>
+  <p class="ed-hint">Points from −50 to +50.{% if score %} Now {{ '%+d' % score.general }}, shown on the site as {{ '%+.1f' % score.shown }}.{% else %} Not rated yet.{% endif %}</p>
+</section>
+
+<section class="ed-section" id="subratings">
+  <h2 class="section-title">Subratings</h2>
+  {% for s in subratings %}
+  <form method="post" class="ed-form ed-row">
+    <input type="hidden" name="category" value="{{ s.category }}">
+    <span class="ed-label">{{ s.label }}</span>
+    <label>Points <input type="number" name="value" min="-50" max="50" step="1" value="{{ s.value }}" required></label>
+    <button name="op" value="set_subrating">Save</button>
+    <button name="op" value="clear_subrating" class="ed-danger" formnovalidate>Clear</button>
+  </form>
+  {% endfor %}
+  {% set used = subratings | map(attribute='category') | list %}
+  <form method="post" class="ed-form ed-row ed-add">
+    <label>Category
+      <select name="category">
+        {% for code, label in categories.items() if code not in used %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Points <input type="number" name="value" min="-50" max="50" step="1" required></label>
+    <button name="op" value="set_subrating">Add</button>
+  </form>
+</section>
+
+<section class="ed-section" id="take">
+  <h2 class="section-title">Aey's Take</h2>
+  {% for t in takes %}
+  <form method="post" class="ed-form ed-stack">
+    <input type="hidden" name="lang" value="{{ t.lang }}">
+    <span class="ed-label">{{ t.lang }}</span>
+    <textarea name="body" rows="4" required lang="{{ t.lang }}">{{ t.body }}</textarea>
+    <div class="ed-row">
+      <label>Written on <input name="written_on" value="{{ t.written_on or '' }}" placeholder="YYYY-MM-DD"></label>
+      <button name="op" value="set_take">Save</button>
+      <button name="op" value="clear_take" class="ed-danger" formnovalidate>Clear</button>
+    </div>
+  </form>
+  {% endfor %}
+  <form method="post" class="ed-form ed-stack ed-add">
+    <div class="ed-row"><label>Language <input name="lang" value="{{ '' if takes else 'en' }}" placeholder="en" required></label></div>
+    <textarea name="body" rows="4" placeholder="A short Take" required></textarea>
+    <div class="ed-row">
+      <label>Written on <input name="written_on" placeholder="YYYY-MM-DD"></label>
+      <button name="op" value="set_take">Add</button>
+    </div>
+  </form>
+</section>
+{% else %}
+<p class="ed-quiet">A {{ entity.kind_label }} can't be rated. Names, facts and pictures come in the next round of the editor.</p>
+{% endif %}
+
+{% if entity.progress %}
+<section class="ed-section" id="progress">
+  <h2 class="section-title">Progress</h2>
+  <form method="post" class="ed-form ed-grid">
+    <label>Status
+      <select name="status">
+        <option value="">(none)</option>
+        {% for code, label in statuses.items() %}<option value="{{ code }}"{% if progress and progress.status == code %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>How far <input type="number" name="progress_value" min="0" step="0.5" value="{{ progress.progress_value if progress and progress.progress_value is not none else '' }}"></label>
+    <label>Counting
+      <select name="progress_unit">
+        <option value="">(none)</option>
+        {% for code, label in units.items() %}<option value="{{ code }}"{% if progress and progress.progress_unit == code %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Started <input name="started_on" value="{{ (progress.started_on or '') if progress else '' }}" placeholder="YYYY-MM-DD"></label>
+    <label>Finished <input name="finished_on" value="{{ (progress.finished_on or '') if progress else '' }}" placeholder="YYYY-MM-DD"></label>
+    <label>Times completed <input type="number" name="times_completed" min="0" step="1" value="{{ progress.times_completed if progress and progress.times_completed is not none else '' }}"></label>
+    <label>Hours <input type="number" name="hours" min="0" step="0.25" value="{{ progress.hours if progress and progress.hours is not none else '' }}"></label>
+    <label class="ed-wide">Note <input name="note" value="{{ (progress.note or '') if progress else '' }}"></label>
+    <div class="ed-actions">
+      <button name="op" value="set_progress">Save</button>
+      {% if progress %}<button name="op" value="clear_progress" class="ed-danger">Clear</button>{% endif %}
+    </div>
+  </form>
+</section>
+{% endif %}
+
+<section class="ed-section" id="changes">
+  <h2 class="section-title">Changes here</h2>
+  {{ ch.changes_list(base, changes, show_entity=false) }}
+</section>
+{% endblock %}

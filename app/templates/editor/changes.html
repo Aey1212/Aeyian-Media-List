@@ -1,0 +1,9 @@
+{% extends "editor/base.html" %}
+{% import "editor/_changes.html" as ch %}
+{% block title %}Changes{% endblock %}
+{% block content %}
+<section class="ed-section">
+  <h1 class="section-title">Changes</h1>
+  {{ ch.changes_list(base, changes) }}
+</section>
+{% endblock %}

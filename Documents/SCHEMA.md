@@ -1,8 +1,8 @@
 # Aeyian Media List — Database Schema
 
 Status (2026/09/17): **All seven layers written and tested**, plus kind labels (0008), latinized
-titles (0009) and more staff roles (0010) (`db/migrations/0001_core_entity.sql` … `0010_more_staff_roles.sql`; `db/test.sh`:
-73 + 94 + 149 + 98 + 104 + 91 + 72 + 8 + 10 + 4 = 703 passed, 0 failed).
+titles (0009), more staff roles (0010), the Background role (0011) and the change log (0012)
+(`db/migrations/0001_core_entity.sql` … `0012_change_log.sql`; `db/test.sh`: 714 passed, 0 failed).
 
 ## Engine and modules
 
@@ -750,6 +750,16 @@ Which pictures each kind uses:
 Frames on the page today: cover 3:4, character portrait 3:4, person portrait rounded square
 (voice actor cards, person pages), person portrait circle (staff credits), company logo tile, language flags, age rating icons (56 px tall on desktop, 48 px on mobile). Banner, backdrop,
 thumbnail and the soundtrack's square cover get their frames when those pages are built.
+
+---
+
+## Change log — `core.change_log` (0012)
+
+Every hand edit — from the web editor, the admin chat or terminal commands — goes through the edit
+operations in `app/edit/operations.py`, which make the change in one transaction and record it here:
+`via` (web, chat, terminal), `operation` (`set_score`, `clear_take` …), the entity (kept as an address and
+name label too, so a row stays readable after the entity is deleted), and the value `before` and `after`
+as JSON. A change that changes nothing is not recorded. The public site never writes.
 
 ---
 
