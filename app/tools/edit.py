@@ -5,6 +5,8 @@
     python -m app.tools.edit set_progress /01/0003/001 status=completed hours=10.5
     python -m app.tools.edit set_progress /01/0003/001 times_completed=     (empty clears a field)
     python -m app.tools.edit clear_score /01/0003/001 --dry-run            (show, keep nothing)
+    python -m app.tools.edit create kind=anime title="Golden Time"         (new, as a draft; no address)
+    python -m app.tools.edit add_picture /22/0008 file=~/taiga.png image_type=portrait
     python -m app.tools.edit ops                                           (the operations and their fields)
     python -m app.tools.edit log [/01/0003/001] [-n 20]                    (the change log)
     python -m app.tools.edit tools                                         (definitions for a chat, as JSON)
@@ -48,7 +50,8 @@ def main(argv: list[str] | None = None) -> int:
         if command == "ops":
             for name, operation in OPERATIONS.items():
                 fields = " ".join(f"{k}{'' if p.required else '?'}" for k, p in operation.params.items())
-                print(f"{name:16} ADDRESS {fields}".rstrip() + f"\n{'':16} {operation.description}")
+                where = "" if operation.creates else "ADDRESS "
+                print(f"{name:16} {where}{fields}".rstrip() + f"\n{'':16} {operation.description}")
             return 0
         if command == "tools":
             print(json.dumps(tool_definitions(conn), ensure_ascii=False, indent=2))
@@ -73,17 +76,20 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         dry_run = "--dry-run" in rest
         rest = [a for a in rest if a != "--dry-run"]
-        if not rest:
+        if OPERATIONS[command].creates:
+            address, pairs = None, rest
+        elif not rest:
             print(f"{command} needs an address, e.g. /01/0003/001", file=sys.stderr)
             return 1
-        address, pairs = rest[0], rest[1:]
+        else:
+            address, pairs = rest[0], rest[1:]
         params = {}
         for pair in pairs:
             if "=" not in pair:
                 print(f"{pair!r}: write fields as name=value", file=sys.stderr)
                 return 1
             key, value = pair.split("=", 1)
-            params[key] = value
+            params[key] = os.path.expanduser(value) if key == "file" else value
         try:
             change = run(conn, command, address, params, via="terminal", dry_run=dry_run)
         except EditError as error:

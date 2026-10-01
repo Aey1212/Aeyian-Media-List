@@ -182,8 +182,9 @@ def test_recent_changes_newest_first(rollback):
 
 def test_tool_definitions_for_a_chat(conn):
     tools = {t["name"]: t for t in tool_definitions(conn)}
-    assert set(tools) == {"set_score", "clear_score", "set_subrating", "clear_subrating",
+    assert set(tools) >= {"set_score", "clear_score", "set_subrating", "clear_subrating",
                           "set_take", "clear_take", "set_progress", "clear_progress"}
+    assert tools["create"]["parameters"]["required"] == ["kind", "title"]   # creating needs no address
     score = tools["set_score"]["parameters"]
     assert score["required"] == ["address", "general"]
     assert score["properties"]["general"] | {"description": None} == {"type": "integer", "minimum": -50, "maximum": 50, "description": None}

@@ -1,21 +1,201 @@
 {% extends "editor/base.html" %}
 {% import "editor/_changes.html" as ch %}
 {% block title %}{{ entity.title or entity.address }}{% endblock %}
+
+{#- What happened, shown in the section it happened in (each form comes back to its section). -#}
+{% macro note(section) -%}
+{% if failed and sections.get(failed) == section %}<p class="ed-message ed-error" role="alert">{{ error }}</p>
+{% elif done == 'create' and section == 'top' %}<p class="ed-message ed-done" role="status">Created. It is a draft until you publish it.</p>
+{% elif done and sections.get(done) == section %}<p class="ed-message ed-done" role="status">Saved: {{ done }}</p>
+{% endif %}
+{%- endmacro %}
+
+{% macro options(items, chosen, empty=none) -%}
+{% if empty is not none %}<option value="">{{ empty }}</option>{% endif %}
+{% for code, label in items.items() %}<option value="{{ code }}"{% if code == chosen %} selected{% endif %}>{{ label }}</option>{% endfor %}
+{%- endmacro %}
+
+{% block message %}{% endblock %}
 {% block content %}
-<header class="ed-head">
+<header class="ed-head" id="top">
   <p class="eyebrow">{{ entity.kind_label }}{% if not published %} · <span class="ed-draft">draft</span>{% endif %}</p>
   <h1 class="title">{{ entity.title or '(no name)' }}</h1>
   <p class="ed-head-meta">
     <span class="ed-address">{{ entity.address }}</span>
+    {% if is_work and franchise.franchise %}
+    <span class="ed-parent">Franchise <a href="{{ base }}/e{{ franchise.franchise }}">{{ franchise.franchise_title or franchise.franchise }}</a>{% if not franchise.franchise_published %} <span class="ed-draft">draft</span>{% endif %}</span>
+    {% endif %}
     {% if published %}<a class="ed-more" href="{{ public_url }}{{ entity.address }}">View on the site ↗</a>{% endif %}
   </p>
+  <form method="post" action="#top" class="ed-form ed-row">
+    {% if published %}
+    <button name="op" value="unpublish" class="ed-danger">Unpublish</button>
+    {% else %}
+    <button name="op" value="publish">Publish</button>
+    <span class="ed-hint">Only the editor sees a draft.</span>
+    {% endif %}
+  </form>
 </header>
-{% if done %}<p class="ed-message ed-done" role="status">Saved: {{ done }}</p>{% endif %}
+{{ note('top') }}
+
+<nav class="ed-jump" aria-label="On this page">
+  <a href="#names">Names</a>
+  {% if is_work %}<a href="#facts">Facts</a><a href="#origin">Origin</a>{% endif %}
+  <a href="#texts">Texts</a>
+  <a href="#pictures">Pictures</a>
+  {% if entity.rateable %}<a href="#score">Score</a><a href="#subratings">Subratings</a><a href="#take">Take</a>{% endif %}
+  {% if entity.progress %}<a href="#progress">Progress</a>{% endif %}
+  <a href="#changes">Changes</a>
+</nav>
+
+<section class="ed-section" id="names">
+  <h2 class="section-title">Names</h2>
+  {{ note('names') }}
+  {% for t in titles %}
+  <form method="post" action="#names" class="ed-form ed-row ed-name">
+    <input type="hidden" name="title_id" value="{{ t.id }}">
+    <label class="ed-grow">Name <input name="text" value="{{ t.text }}" lang="{{ t.lang }}" required></label>
+    <label>Language <input name="lang" value="{{ t.lang }}" class="ed-short" required></label>
+    <label>Type <select name="title_type">{{ options(title_types, t.title_type) }}</select></label>
+    <label class="ed-check"><input type="hidden" name="native" value="0"><input type="checkbox" name="native" value="1"{% if t.native %} checked{% endif %}>Native</label>
+    <label class="ed-check"><input type="hidden" name="preferred" value="0"><input type="checkbox" name="preferred" value="1"{% if t.preferred %} checked{% endif %}>Preferred</label>
+    <button name="op" value="edit_title">Save</button>
+    <button name="op" value="remove_title" class="ed-danger" formnovalidate>Remove</button>
+    {% if t.latinizes_text %}<p class="ed-hint ed-full">Latinized from {{ t.latinizes_text }}</p>{% endif %}
+  </form>
+  {% else %}
+  <p class="ed-quiet">No names yet. A page needs one before it can be published.</p>
+  {% endfor %}
+  {% set keep = sent if failed == 'add_title' else {} %}
+  <form method="post" action="#names" class="ed-form ed-row ed-add">
+    <label class="ed-grow">Name <input name="text" value="{{ keep.text or '' }}" required></label>
+    <label>Language <input name="lang" value="{{ keep.lang or 'en' }}" class="ed-short" required></label>
+    <label>Type <select name="title_type">{{ options(title_types, keep.title_type or 'full') }}</select></label>
+    <label class="ed-check"><input type="hidden" name="native" value="0"><input type="checkbox" name="native" value="1"{% if keep.native == '1' %} checked{% endif %}>Native</label>
+    <label class="ed-check"><input type="hidden" name="preferred" value="0"><input type="checkbox" name="preferred" value="1"{% if keep.preferred == '1' or (not keep and not titles) %} checked{% endif %}>Preferred</label>
+    {% if titles %}
+    <label>Latinized from
+      <select name="latinizes">
+        <option value="">(none)</option>
+        {% for t in titles %}<option value="{{ t.id }}"{% if keep.latinizes == t.id | string %} selected{% endif %}>{{ t.text }} ({{ t.lang }})</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+    <button name="op" value="add_title">Add</button>
+  </form>
+  <p class="ed-hint">Native: the name in the original language, one per type. Preferred: the one shown for its language and type. Marking one takes the mark from the name that had it.</p>
+</section>
+
+{% if is_work %}
+<section class="ed-section" id="facts">
+  <h2 class="section-title">Facts</h2>
+  {{ note('facts') }}
+  {% set w = sent if failed == 'set_work' else work %}
+  <form method="post" action="#facts" class="ed-form ed-grid">
+    <label>Status <select name="status">{{ options(work_statuses, w.status, '(not set)') }}</select></label>
+    <label>Started <input name="start_date" value="{{ w.start_date or '' }}" placeholder="YYYY-MM-DD"></label>
+    <label>Ended <input name="end_date" value="{{ w.end_date or '' }}" placeholder="YYYY-MM-DD"></label>
+    <label>Based on <select name="source_type">{{ options(source_types, w.source_type, '(not set)') }}</select></label>
+    <div class="ed-actions"><button name="op" value="set_work">Save</button></div>
+  </form>
+  <form method="post" action="#facts" class="ed-form ed-grid ed-add">
+    {% for f in medium %}
+    {% set v = sent[f.name] if failed == 'set_medium' and f.name in sent else f.value %}
+    {% if f.name == 'format' %}
+    <label>{{ f.label }} <select name="format">{{ options(anime_formats, v, '(not set)') }}</select></label>
+    {% else %}
+    <label>{{ f.label }} <input type="number" name="{{ f.name }}" min="0" step="{{ 'any' if 'minutes' in f.name else '1' }}" value="{{ v if v is not none else '' }}"></label>
+    {% endif %}
+    {% endfor %}
+    <div class="ed-actions"><button name="op" value="set_medium">Save</button></div>
+  </form>
+  <p class="ed-hint">Dates are the calendar date in the country of origin: YYYY, YYYY-MM or YYYY-MM-DD. An empty field clears it.</p>
+</section>
+
+<section class="ed-section" id="origin">
+  <h2 class="section-title">Origin</h2>
+  {{ note('origin') }}
+  {% for label, field, values, add, remove, example in [
+       ('Languages', 'lang', languages, 'add_original_language', 'remove_original_language', 'ja'),
+       ('Countries', 'country', countries, 'add_origin_country', 'remove_origin_country', 'JP')] %}
+  <div class="ed-row ed-origin">
+    <span class="ed-label">{{ label }}</span>
+    {% for value in values %}
+    <form method="post" action="#origin" class="ed-chip">
+      <input type="hidden" name="{{ field }}" value="{{ value }}">
+      <span>{{ value }}</span>
+      <button name="op" value="{{ remove }}" class="ed-x" aria-label="Remove {{ value }}" title="Remove">×</button>
+    </form>
+    {% endfor %}
+    <form method="post" action="#origin" class="ed-form ed-row ed-inline">
+      <input name="{{ field }}" class="ed-short" placeholder="{{ example }}" aria-label="{{ label }}: add one" required
+             value="{{ sent[field] if failed == add and field in sent else '' }}">
+      <button name="op" value="{{ add }}">Add</button>
+    </form>
+  </div>
+  {% endfor %}
+  <p class="ed-hint">Language tags like ja or zh-Hant; countries as two letters, like JP.</p>
+</section>
+{% endif %}
+
+<section class="ed-section" id="texts">
+  <h2 class="section-title">Texts</h2>
+  {{ note('texts') }}
+  {% for x in texts %}
+  <form method="post" action="#texts" class="ed-form ed-stack">
+    <input type="hidden" name="text_type" value="{{ x.text_type }}">
+    <input type="hidden" name="lang" value="{{ x.lang }}">
+    <span class="ed-label">{{ x.label }} · {{ x.lang }}</span>
+    <textarea name="body" rows="6" lang="{{ x.lang }}" required>{{ sent.body if failed == 'set_text' and sent.text_type == x.text_type and sent.lang == x.lang else x.body }}</textarea>
+    <div class="ed-row">
+      <button name="op" value="set_text">Save</button>
+      <button name="op" value="clear_text" class="ed-danger" formnovalidate>Clear</button>
+    </div>
+  </form>
+  {% endfor %}
+  {% set keep = sent if failed == 'set_text' and not (texts | selectattr('text_type', 'equalto', sent.text_type) | selectattr('lang', 'equalto', sent.lang) | list) else {} %}
+  <form method="post" action="#texts" class="ed-form ed-stack ed-add">
+    <div class="ed-row">
+      <label>Type <select name="text_type">{{ options(text_types, keep.text_type or first_text) }}</select></label>
+      <label>Language <input name="lang" value="{{ keep.lang or ('' if texts else 'en') }}" placeholder="en" class="ed-short" required></label>
+    </div>
+    <textarea name="body" rows="6" placeholder="A synopsis for a work, a description for anyone else" required>{{ keep.body or '' }}</textarea>
+    <div class="ed-row"><button name="op" value="set_text">Add</button></div>
+  </form>
+</section>
+
+<section class="ed-section" id="pictures">
+  <h2 class="section-title">Pictures</h2>
+  {{ note('pictures') }}
+  {% if pictures %}
+  <ul class="ed-pictures">
+    {% for p in pictures %}
+    <li class="ed-picture">
+      <img src="{{ base }}/media/{{ p.file }}" alt="{{ p.label }} {{ loop.index }}">
+      <span class="ed-kind">{{ p.label }}{% if p.is_primary %} · primary{% endif %}</span>
+      {% if p.width %}<span class="ed-address">{{ p.width }}×{{ p.height }}</span>{% endif %}
+      <form method="post" action="#pictures" class="ed-row">
+        <input type="hidden" name="image_id" value="{{ p.id }}">
+        {% if not p.is_primary %}<button name="op" value="make_primary">Make primary</button>{% endif %}
+        <button name="op" value="remove_picture" class="ed-danger">Remove</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="#pictures" enctype="multipart/form-data" class="ed-form ed-row ed-add">
+    <label class="ed-grow">Picture <input type="file" name="upload" accept="image/*,.svg" required></label>
+    <label>Type <select name="image_type">{{ options(image_types, sent.image_type if failed == 'add_picture' else first_picture) }}</select></label>
+    <button name="op" value="add_picture">Add</button>
+  </form>
+  <p class="ed-hint">A web copy is stored, sized for the site. The primary picture of a type is the one pages show; the first one added is primary.</p>
+</section>
 
 {% if entity.rateable %}
 <section class="ed-section" id="score">
   <h2 class="section-title">General Score</h2>
-  <form method="post" class="ed-form ed-row">
+  {{ note('score') }}
+  <form method="post" action="#score" class="ed-form ed-row">
     <label>Points <input type="number" name="general" min="-50" max="50" step="1" value="{{ score.general if score else '' }}" required></label>
     <label>Rated on <input name="rated_on" value="{{ (score.rated_on or '') if score else '' }}" placeholder="YYYY-MM-DD"></label>
     <button name="op" value="set_score">Save</button>
@@ -26,8 +206,9 @@
 
 <section class="ed-section" id="subratings">
   <h2 class="section-title">Subratings</h2>
+  {{ note('subratings') }}
   {% for s in subratings %}
-  <form method="post" class="ed-form ed-row">
+  <form method="post" action="#subratings" class="ed-form ed-row">
     <input type="hidden" name="category" value="{{ s.category }}">
     <span class="ed-label">{{ s.label }}</span>
     <label>Points <input type="number" name="value" min="-50" max="50" step="1" value="{{ s.value }}" required></label>
@@ -36,7 +217,7 @@
   </form>
   {% endfor %}
   {% set used = subratings | map(attribute='category') | list %}
-  <form method="post" class="ed-form ed-row ed-add">
+  <form method="post" action="#subratings" class="ed-form ed-row ed-add">
     <label>Category
       <select name="category">
         {% for code, label in categories.items() if code not in used %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
@@ -49,8 +230,9 @@
 
 <section class="ed-section" id="take">
   <h2 class="section-title">Aey's Take</h2>
+  {{ note('take') }}
   {% for t in takes %}
-  <form method="post" class="ed-form ed-stack">
+  <form method="post" action="#take" class="ed-form ed-stack">
     <input type="hidden" name="lang" value="{{ t.lang }}">
     <span class="ed-label">{{ t.lang }}</span>
     <textarea name="body" rows="4" required lang="{{ t.lang }}">{{ t.body }}</textarea>
@@ -61,7 +243,7 @@
     </div>
   </form>
   {% endfor %}
-  <form method="post" class="ed-form ed-stack ed-add">
+  <form method="post" action="#take" class="ed-form ed-stack ed-add">
     <div class="ed-row"><label>Language <input name="lang" value="{{ '' if takes else 'en' }}" placeholder="en" required></label></div>
     <textarea name="body" rows="4" placeholder="A short Take" required></textarea>
     <div class="ed-row">
@@ -70,14 +252,13 @@
     </div>
   </form>
 </section>
-{% else %}
-<p class="ed-quiet">A {{ entity.kind_label }} can't be rated. Names, facts and pictures come in the next round of the editor.</p>
 {% endif %}
 
 {% if entity.progress %}
 <section class="ed-section" id="progress">
   <h2 class="section-title">Progress</h2>
-  <form method="post" class="ed-form ed-grid">
+  {{ note('progress') }}
+  <form method="post" action="#progress" class="ed-form ed-grid">
     <label>Status
       <select name="status">
         <option value="">(none)</option>

@@ -24,7 +24,7 @@
   </div>
 </header>
 <main class="wrap">
-{% if error %}<p class="ed-message ed-error" role="alert">{{ error }}</p>{% endif %}
+{% block message %}{% if error %}<p class="ed-message ed-error" role="alert">{{ error }}</p>{% endif %}{% endblock %}
 {% block content %}{% endblock %}
 </main>
 </body>

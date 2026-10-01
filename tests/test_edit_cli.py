@@ -87,3 +87,15 @@ def test_the_log_ops_and_chat_tools(clean, capsys):
     assert main(["tools"]) == 0
     tools = json.loads(capsys.readouterr().out)
     assert {t["name"] for t in tools} >= {"set_score", "set_take", "set_progress"}
+
+
+def test_creating_needs_no_address(clean, capsys):
+    last = clean.execute("SELECT max(id) FROM core.entity").fetchone()[0]
+    try:
+        assert main(["create", "kind=character", "title=Terminal Person"]) == 0
+        out = capsys.readouterr().out
+        assert out.startswith("create /22/") and "kind character, title Terminal Person" in out
+        assert main(["ops"]) == 0
+        assert "create           kind title lang? franchise?" in capsys.readouterr().out
+    finally:
+        clean.execute("DELETE FROM core.entity WHERE id > %s", (last,))

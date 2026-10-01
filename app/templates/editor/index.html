@@ -26,6 +26,22 @@
   {% endif %}
 </section>
 
+<section class="ed-section" id="new">
+  <h2 class="section-title">New</h2>
+  <form method="post" action="{{ base }}/new" class="ed-form ed-row">
+    <label>What
+      <select name="kind">
+        {% for kind, label in kinds.items() %}<option value="{{ kind }}"{% if sent.kind == kind %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="ed-grow">Name <input name="title" value="{{ sent.title or '' }}" required></label>
+    <label>Language <input name="lang" value="{{ sent.lang or 'en' }}" class="ed-short" required></label>
+    <label>Franchise <input name="franchise" value="{{ sent.franchise or '' }}" placeholder="/21/0003" class="ed-mid"></label>
+    <button>Create</button>
+  </form>
+  <p class="ed-hint">It starts as a draft, hidden from the site. A work left without a franchise gets its own new one, named like it.</p>
+</section>
+
 <section class="ed-section">
   <h2 class="section-title">Latest changes</h2>
   {{ ch.changes_list(base, changes) }}

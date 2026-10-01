@@ -96,3 +96,12 @@ def web_copy(file: str | Path, image_type: str, kind: str | None) -> tuple[bytes
         out = io.BytesIO()
         picture.save(out, format="WEBP", quality=90, method=6)
         return out.getvalue(), "webp", picture.width, picture.height
+
+
+def shape_for(image_type: str, kind: str | None) -> str:
+    """The shape a picture is drawn in, which decides the sizes stored for it (SLOT_WIDTHS)."""
+    if image_type == "logo":
+        return "logo"
+    if image_type == "portrait" and kind == "person":
+        return "person"
+    return "portrait"
