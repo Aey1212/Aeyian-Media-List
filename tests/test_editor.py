@@ -235,3 +235,16 @@ def test_pictures_are_uploaded_not_named(fresh, tmp_path):
     fake = fresh.post("/aml/e" + address, data={"op": "add_picture", "image_type": "portrait"},
                       files={"upload": ("fake.png", b"not a picture", "image/png")}, headers=SAME_SITE)
     assert fake.status_code == 400 and "can&#39;t be read as a picture" in fake.text
+
+
+def test_deleting_a_draft_from_its_page(fresh):
+    address = fresh.post("/aml/new", data={"kind": "person", "title": "Mistake", "lang": "en"},
+                         headers=SAME_SITE).headers["location"].split("?")[0].removeprefix("/aml/e")
+    assert 'value="delete_draft"' in fresh.get("/aml/e" + address).text
+    assert 'value="delete_draft"' not in fresh.get("/aml/e" + TORADORA).text   # published: no button
+    r = fresh.post("/aml/e" + address, data={"op": "delete_draft"}, headers=SAME_SITE)
+    assert r.status_code == 303 and r.headers["location"].startswith("/aml/?deleted=")
+    assert f"Deleted {address} Mistake." in fresh.get(r.headers["location"]).text
+    assert fresh.get("/aml/e" + address).status_code == 404
+    refused = fresh.post("/aml/e" + TORADORA, data={"op": "delete_draft"}, headers=SAME_SITE)
+    assert refused.status_code == 400 and "Only a draft can be deleted." in refused.text

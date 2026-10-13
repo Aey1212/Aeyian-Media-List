@@ -46,6 +46,8 @@ class Operation:
     description: str
     params: dict[str, Param] = field(default_factory=dict)
     creates: bool = False
+    # the entity is gone afterwards: the log keeps its label, not a link to it
+    deletes: bool = False
 
 
 def codes(sql: str) -> Callable[[psycopg.Connection], list[str]]:

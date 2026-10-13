@@ -32,6 +32,7 @@
     <button name="op" value="unpublish" class="ed-danger">Unpublish</button>
     {% else %}
     <button name="op" value="publish">Publish</button>
+    <button name="op" value="delete_draft" class="ed-danger" onclick="return confirm('Delete this draft for good?')">Delete draft</button>
     <span class="ed-hint">Only the editor sees a draft.</span>
     {% endif %}
   </form>

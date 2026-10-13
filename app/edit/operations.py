@@ -144,7 +144,8 @@ def run(conn: psycopg.Connection, name: str, address: str | None, params: dict[s
             # rules the database checks at commit (a published page needs a name) are checked
             # now, so a refusal reaches the door as words, and a dry run is refused the same way
             conn.execute("SET CONSTRAINTS ALL IMMEDIATE")
-            entity = target(conn, entity["address"])   # its name may have just changed
+            if not operation.deletes:
+                entity = target(conn, entity["address"])   # its name may have just changed
             label = f"{entity['address']} {entity['title'] or ''}".strip()
             if before != after:
                 conn.execute(
@@ -152,7 +153,7 @@ def run(conn: psycopg.Connection, name: str, address: str | None, params: dict[s
                     INSERT INTO core.change_log (via, operation, entity_id, entity_label, before, after)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """,
-                    (via, name, entity["id"], label,
+                    (via, name, None if operation.deletes else entity["id"], label,
                      None if before is None else json.dumps(before), None if after is None else json.dumps(after)),
                 )
     except (psycopg.errors.IntegrityError, psycopg.errors.RaiseException) as error:

@@ -35,7 +35,7 @@ TEMPLATES = Jinja2Templates(directory=str(HERE / "templates"))
 
 # The part of the entity page each operation changes: a save lands back there.
 SECTIONS = {
-    "create": "top", "publish": "top", "unpublish": "top",
+    "create": "top", "publish": "top", "unpublish": "top", "delete_draft": "top",
     "add_title": "names", "edit_title": "names", "remove_title": "names",
     "set_work": "facts", "set_medium": "facts",
     "add_original_language": "origin", "remove_original_language": "origin",
@@ -263,17 +263,19 @@ def create_editor(settings: EditorSettings | None = None) -> FastAPI:
         return await call_next(request)
 
     def landing(result, name: str) -> RedirectResponse:
+        if OPERATIONS[name].deletes:
+            return RedirectResponse(f"{settings.root_path}/?deleted={quote(result.label)}", status_code=303)
         section = SECTIONS.get(name)
         return RedirectResponse(f"{settings.root_path}/e{result.address}?done={quote(name)}"
                                 + (f"#{section}" if section else ""), status_code=303)
 
     @site.get("/", response_class=HTMLResponse)
-    def index(request: Request, q: str = "") -> Response:
+    def index(request: Request, q: str = "", deleted: str = "") -> Response:
         with connect() as conn:
             results = search(conn, q)
             changes = recent_changes(conn, limit=15)
             kinds = creatable_kinds(conn)
-        return page(request, "index", q=q, results=results, changes=changes, kinds=kinds, sent={})
+        return page(request, "index", q=q, results=results, changes=changes, kinds=kinds, sent={}, deleted=deleted)
 
     @site.post("/new", response_class=HTMLResponse)
     async def new(request: Request) -> Response:

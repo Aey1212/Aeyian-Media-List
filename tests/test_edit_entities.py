@@ -229,3 +229,43 @@ def test_pictures(db, tmp_path, monkeypatch):
         run(db, "add_picture", address, {"file": str(tmp_path / "missing.png"), "image_type": "portrait"})
     with pytest.raises(EditError, match="image_type: 'sticker' is not one of"):
         run(db, "add_picture", address, {"file": str(first), "image_type": "sticker"})
+
+
+# --- deleting drafts ------------------------------------------------------------------
+
+def test_a_draft_work_goes_with_its_own_franchise(db):
+    change = run(db, "create", None, {"kind": "anime", "title": "Golden Time"})
+    own = change.after["franchise"].removesuffix(" (new, a draft)")
+    deleted = run(db, "delete_draft", change.address)
+    assert deleted.before == {"kind": "anime", "names": ["Golden Time"], "published": False,
+                              "franchise": f"{own} Golden Time (deleted with it)"}
+    assert deleted.after is None and deleted.label == f"{change.address} Golden Time"
+    for address in (change.address, own):
+        assert one(db, "SELECT count(*) AS n FROM core.resolve(%s)", address)["n"] == 0
+    log = one(db, "SELECT operation, entity_id, entity_label FROM core.change_log ORDER BY id DESC LIMIT 1")
+    assert log == {"operation": "delete_draft", "entity_id": None, "entity_label": deleted.label}
+
+
+def test_a_shared_or_published_franchise_stays(db):
+    work = run(db, "create", None, {"kind": "light_novel", "title": "Extra", "franchise": TORADORA_FRANCHISE}).address
+    assert "franchise" not in run(db, "delete_draft", work).before
+    assert one(db, "SELECT count(*) AS n FROM core.resolve(%s)", TORADORA_FRANCHISE)["n"] == 1
+
+
+@pytest.mark.parametrize("case", ["published", "appearance", "work in it"])
+def test_deleting_is_refused_while_something_depends_on_it(db, case):
+    if case == "published":
+        address, message = TAIGA, "Only a draft can be deleted. Unpublish it first."
+    elif case == "appearance":
+        address = run(db, "create", None, {"kind": "character", "title": "Extra Student"}).address
+        db.execute("INSERT INTO core.appearance (character_id, character_kind, target_id, target_kind) "
+                   "VALUES (%s, 'character', %s, 'anime')", (entity_id(db, address), entity_id(db, TORADORA)))
+        message = r"It is still tied to other pages \(1 appearance\)\. Those go first\."
+    else:
+        address = run(db, "create", None, {"kind": "franchise", "title": "New Franchise"}).address
+        run(db, "create", None, {"kind": "anime", "title": "A", "franchise": address})
+        run(db, "create", None, {"kind": "manga", "title": "B", "franchise": address})
+        message = r"\(2 works in it\)"
+    with pytest.raises(EditError, match=message):
+        run(db, "delete_draft", address)
+    assert one(db, "SELECT count(*) AS n FROM core.resolve(%s)", address)["n"] == 1

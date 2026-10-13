@@ -73,6 +73,63 @@ def unpublish(conn, entity):
     return before, _published(conn, entity)
 
 
+# Rows that tie a page to another page: (table, columns the page can be in, one, many).
+# The database would delete these with the page, silently changing the other page, so a draft
+# that is still tied to another page is not deleted.
+LINKS = (
+    ("core.media_relation", ("source_id", "target_id"), "relation", "relations"),
+    ("core.franchise_relation", ("source_id", "target_id"), "franchise relation", "franchise relations"),
+    ("core.entity_franchise", ("entity_id", "franchise_id"), "franchise membership", "franchise memberships"),
+    ("core.appearance", ("character_id", "target_id"), "appearance", "appearances"),
+    ("core.performance", ("person_id", "character_id", "target_id"), "cast entry", "cast entries"),
+    ("core.staff_credit", ("person_id", "target_id"), "staff credit", "staff credits"),
+    ("core.company_credit", ("company_id", "target_id"), "company credit", "company credits"),
+    ("core.entity", ("parent_id",), "page under it", "pages under it"),
+    ("core.entity", ("franchise_id",), "work in it", "works in it"),
+)
+
+
+def _ties(conn, entity_id: int) -> list[str]:
+    """What still ties a page to other pages, in words ("2 cast entries")."""
+    ties = []
+    for table, columns, one, many in LINKS:
+        where = " OR ".join(f"{column} = %(id)s" for column in columns)
+        n = conn.execute(f"SELECT count(*) AS n FROM {table} WHERE {where}", {"id": entity_id}).fetchone()["n"]
+        if n:
+            ties.append(f"{n} {one if n == 1 else many}")
+    return ties
+
+
+def delete_draft(conn, entity):
+    """Deletes a draft and everything that is only its own (names, texts, pictures' records,
+    facts, Aey's data). Refused for a published page, or while other pages are tied to it.
+    A work's own franchise goes with it when that is a draft with nothing else in it."""
+    row = conn.execute("SELECT published_at IS NOT NULL AS published, franchise_id FROM core.entity WHERE id = %s",
+                       (entity["id"],)).fetchone()
+    if row["published"]:
+        raise EditError("Only a draft can be deleted. Unpublish it first.")
+    ties = _ties(conn, entity["id"])
+    if ties:
+        raise EditError(f"It is still tied to other pages ({', '.join(ties)}). Those go first.")
+    before = {"kind": entity["kind"], "names": [r["text"] for r in conn.execute(
+        "SELECT text FROM core.title WHERE entity_id = %s ORDER BY id", (entity["id"],))], "published": False}
+    conn.execute("DELETE FROM core.entity WHERE id = %s", (entity["id"],))
+    home = row["franchise_id"]
+    if home is not None:
+        franchise = conn.execute(
+            """
+            SELECT core.address(id) AS address, published_at IS NOT NULL AS published,
+                   (SELECT text FROM core.title WHERE entity_id = e.id ORDER BY preferred DESC, id LIMIT 1) AS title
+              FROM core.entity e WHERE id = %s
+            """,
+            (home,),
+        ).fetchone()
+        if not franchise["published"] and not _ties(conn, home):
+            conn.execute("DELETE FROM core.entity WHERE id = %s", (home,))
+            before["franchise"] = f"{franchise['address']} {franchise['title'] or ''}".strip() + " (deleted with it)"
+    return before, None
+
+
 # --- names --------------------------------------------------------------------
 
 def _title(conn, entity, title_id: int) -> dict[str, Any]:
@@ -384,6 +441,7 @@ ENTITY_OPERATIONS: dict[str, Operation] = {
     }, creates=True),
     "publish": Operation(publish, "Show the page on the public site."),
     "unpublish": Operation(unpublish, "Hide the page from the public site (a draft again)."),
+    "delete_draft": Operation(delete_draft, "Delete a draft for good, if no other page is tied to it.", deletes=True),
     "add_title": Operation(add_title, "Add a name.", {
         "text": Param("text", "The name.", required=True),
         "lang": LANG,

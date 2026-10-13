@@ -2,6 +2,7 @@
 {% import "editor/_changes.html" as ch %}
 {% block title %}Search{% endblock %}
 {% block content %}
+{% if deleted %}<p class="ed-message ed-done" role="status">Deleted {{ deleted }}.</p>{% endif %}
 <section class="ed-section">
   <h1 class="section-title">Find</h1>
   <form class="ed-search" method="get" action="{{ base }}/">
